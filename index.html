@@ -33,7 +33,7 @@ main{max-width:1200px;margin:0 auto;padding:14px}
 .muted{color:var(--ink2);font-size:13px}
 canvas{image-rendering:pixelated;display:block}
 #mapWrap{position:relative;border:3px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);background:#9fd8ff;touch-action:none}
-#mapCv{width:100%;height:min(72vh,720px);cursor:grab}
+#mapCv{width:100%;height:min(80vh,820px);cursor:grab}
 #mapTip{position:absolute;pointer-events:none;background:#fffaf0;border:3px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;max-width:280px;display:none;box-shadow:var(--shadow);z-index:3}
 #mapLegend:empty{display:none}
 #mapLegend{position:absolute;left:10px;bottom:10px;background:rgba(255,250,240,.92);border:2px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;max-width:60%}
@@ -787,13 +787,12 @@ function renderIslandThumb(isl,Z){
 // ---------- SKY MAP ----------
 const MAP=(()=>{
  let cv,ctx,cam={x:0,y:0,z:.62},drag=null,hover=null,thumbs={},pos={},clouds=[];
- function layout(){// 3x2 grid of regions, islands in a neat grid inside each
-  const BW=1500,BH=1180;REGIONS.forEach((R,ri)=>{const col=ri%3,row=Math.floor(ri/3);R.cx=(col-1)*BW;R.cy=(row-.5)*BH;
-   const ls=LECTS.filter(l=>l.r===R.id),n=ls.length,cols=n<=2?n:n<=4?2:3,rows=Math.ceil(n/cols),SX=470,SY=500;
-   ls.forEach((L,i)=>{const c=i%cols,r=Math.floor(i/cols);pos[L.id]={x:R.cx+(c-(cols-1)/2)*SX,y:R.cy+40+(r-(rows-1)/2)*SY+(c%2?50:-20)}})});
-  for(let i=0;i<30;i++)clouds.push({x:(Math.random()-.5)*5200,y:(Math.random()-.5)*2800,s:.6+Math.random()*1.4,v:.08+Math.random()*.15})}
+ function layout(){// one winding sky trail in lecture order (serpentine rows of 5)
+  const COLS=5,SX=920,SY=600;LECTS.forEach((L,k)=>{const row=Math.floor(k/COLS),c=k%COLS,col=row%2?COLS-1-c:c;pos[L.id]={x:(col-(COLS-1)/2)*SX,y:row*SY+Math.sin(k*1.3)*60}});
+  for(let i=0;i<34;i++)clouds.push({x:(Math.random()-.5)*4400,y:(Math.random()-.2)*3600,s:.6+Math.random()*1.4,v:.08+Math.random()*.15})}
+ function nextId(){const L=LECTS.find(L=>L.qs.length&&stars(L.id)<3);return L?L.id:null}
  function init(){
-  const host=$('#p-map');host.innerHTML=`<div class="row" style="margin-bottom:10px"><b class="px" style="font-size:12px">SKY MAP</b><span class="muted">Click an island to land. Drag to pan, scroll or ± to zoom. Stars = mastery (★ seen half · ★★ 80% right · ★★★ 95% right + boss beaten).</span></div>
+  const host=$('#p-map');host.innerHTML=`<div class="row" style="margin-bottom:10px"><b class="px" style="font-size:12px">SKY MAP</b><span class="muted">Follow the numbered sky trail in lecture order (4.01 → 4.21.4); the glowing NEXT marker shows your next lecture to master. Click an island to land. Drag to pan, scroll or ± to zoom. Stars = mastery (★ seen half · ★★ 80% right · ★★★ 95% right + boss beaten).</span></div>
   <div id="mapWrap"><canvas id="mapCv"></canvas><div id="mapTip"></div><div id="mapLegend"></div><div id="mapZoom"><button id="zin">+</button><button id="zout">−</button><button id="zfit" title="Fit">⤢</button></div></div>
   <div class="card" style="margin-top:14px"><div id="mapList"></div></div>`;
   cv=$('#mapCv');ctx=cv.getContext('2d');layout();LECTS.forEach(L=>{thumbs[L.id]=renderIslandThumb(genIsland(L),1)});
@@ -804,11 +803,11 @@ const MAP=(()=>{
   $('#zin').onclick=()=>zoom(1.2);$('#zout').onclick=()=>zoom(1/1.2);$('#zfit').onclick=fit;
   fit();loop();list()}
  function zoom(f){cam.z=Math.max(.07,Math.min(1.6,cam.z*f))}
- function fit(){const r=cv.getBoundingClientRect();if(!r.width)return;const xs=LECTS.map(L=>pos[L.id].x),ys=LECTS.map(L=>pos[L.id].y);const x0=Math.min(...xs)-330,x1=Math.max(...xs)+330,y0=Math.min(...ys,...REGIONS.map(R=>R.cy-520))-120,y1=Math.max(...ys)+440;cam.x=(x0+x1)/2;cam.y=(y0+y1)/2;cam.z=Math.max(.07,Math.min(r.width/(x1-x0),r.height/(y1-y0)))}
+ function fit(){const r=cv.getBoundingClientRect();if(!r.width)return;const xs=LECTS.map(L=>pos[L.id].x),ys=LECTS.map(L=>pos[L.id].y);const x0=Math.min(...xs)-640,x1=Math.max(...xs)+640,y0=Math.min(...ys)-380,y1=Math.max(...ys)+470;cam.x=(x0+x1)/2;cam.y=(y0+y1)/2;cam.z=Math.max(.07,Math.min(r.width/(x1-x0),r.height/(y1-y0)))}
  function scr(p){const r=cv.getBoundingClientRect();return[(p.x-cam.x)*cam.z+r.width/2,(p.y-cam.y)*cam.z+r.height/2]}
  function hit(e){const r=cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;let best=null,bd=1e9;LECTS.forEach(L=>{const[sx,sy]=scr(pos[L.id]);const d=Math.hypot(mx-sx,my-sy);if(d<190*cam.z+16&&d<bd){bd=d;best=L.id}});return best}
  function showTip(e){const tip=$('#mapTip');if(!hover){tip.style.display='none';cv.style.cursor='grab';return}cv.style.cursor='pointer';const L=LMAP[hover],s=lectStats(hover);const r=cv.getBoundingClientRect();
-  tip.innerHTML=`<b>${esc(L.id)} ${esc(L.short)}</b><div class="muted">(${esc(L.lec)}: ${esc(L.t)})</div><div class="stars">${starStr(stars(hover))}</div><div>${s.cor}/${s.n} questions correct · ${s.seen} seen</div>${S.boss[hover]?'<div>👑 Boss defeated</div>':''}<div class="muted">Click to land</div>`;
+  tip.innerHTML=`<div class="muted" style="font-weight:800">Stop #${LECTS.indexOf(L)+1} · ${esc((REGIONS.find(r=>r.id===L.r)||{}).n||'')}</div><b>${esc(L.id)} ${esc(L.short)}</b><div class="muted">(${esc(L.lec)}: ${esc(L.t)})</div><div class="stars">${starStr(stars(hover))}</div><div>${s.cor}/${s.n} questions correct · ${s.seen} seen</div>${S.boss[hover]?'<div>👑 Boss defeated</div>':''}<div class="muted">Click to land</div>`;
   tip.style.display='block';tip.style.left=Math.min(r.width-290,e.clientX-r.left+16)+'px';tip.style.top=(e.clientY-r.top+16)+'px'}
  function loop(){if(!cv.isConnected)return;requestAnimationFrame(loop);if(!$('#p-map').classList.contains('on'))return;
   const r=cv.getBoundingClientRect(),dpr=devicePixelRatio||1;if(!r.width)return;if(cv.width!==Math.round(r.width*dpr)){cv.width=r.width*dpr;cv.height=r.height*dpr}
@@ -819,20 +818,21 @@ const MAP=(()=>{
   if(night){ctx.fillStyle='#fff';for(let i=0;i<90;i++){const sx=(i*137.5%r.width),sy=(i*71.3%r.height);ctx.globalAlpha=.4+.4*Math.sin(t*2+i);ctx.fillRect(sx,sy,2,2)}ctx.globalAlpha=1}
   if(S.eq.sky==='aurora'){for(let k=0;k<3;k++){ctx.fillStyle=['rgba(46,196,164,.18)','rgba(138,74,216,.15)','rgba(120,255,200,.12)'][k];ctx.beginPath();ctx.moveTo(0,r.height*.2);for(let xx=0;xx<=r.width;xx+=20)ctx.lineTo(xx,r.height*(.18+k*.05)+Math.sin(xx/120+t*.6+k)*30);ctx.lineTo(r.width,0);ctx.lineTo(0,0);ctx.fill()}}
   // clouds back
-  clouds.forEach(c=>{c.x+=c.v;if(c.x>2700)c.x=-2700;const[sx,sy]=scr(c);cloud(sx,sy,c.s*cam.z*2.2,night)});
-  // region halos + labels
-  REGIONS.forEach(R=>{const[sx,sy]=scr({x:R.cx,y:R.cy});ctx.fillStyle=R.halo||'rgba(255,255,255,.12)';ctx.beginPath();ctx.ellipse(sx,sy+40*cam.z,720*cam.z,560*cam.z,0,0,7);ctx.fill()});
-  // bridges
-  REGIONS.forEach(R=>{const ls=LECTS.filter(l=>l.r===R.id);for(let i=1;i<ls.length;i++)bridge(scr(pos[ls[i-1].id]),scr(pos[ls[i].id]))});
+  clouds.forEach(c=>{c.x+=c.v;if(c.x>2400)c.x=-2400;const[sx,sy]=scr(c);cloud(sx,sy,c.s*cam.z*2.2,night)});
+  // the trail: bridges in lecture order (gold once the earlier island is mastered)
+  for(let k=1;k<LECTS.length;k++){const A=LECTS[k-1],B=LECTS[k];bridge(scr(pos[A.id]),scr(pos[B.id]),stars(A.id)>=2,t,k)}
   // islands sorted by y
-  LECTS.slice().sort((a,b)=>pos[a.id].y-pos[b.id].y).forEach(L=>{const th=thumbs[L.id];const[sx,sy]=scr(pos[L.id]);const sc=cam.z*.62;const bob=Math.sin(t*1.2+L.id.length*1.7+pos[L.id].x)*6*cam.z;
+  const nx=nextId();LECTS.slice().sort((a,b)=>pos[a.id].y-pos[b.id].y).forEach(L=>{const th=thumbs[L.id];const[sx,sy]=scr(pos[L.id]);const sc=cam.z*.62;const bob=Math.sin(t*1.2+L.id.length*1.7+pos[L.id].x)*6*cam.z;
    ctx.drawImage(th,sx-th.ox*sc,sy-th.oy*sc-170*sc+bob,th.width*sc,th.height*sc);
    if(hover===L.id){ctx.strokeStyle='#ffe48a';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(sx,sy+bob+30*sc,330*sc,150*sc,0,0,7);ctx.stroke()}
-   label(L,sx,sy+bob+220*sc)});
-  REGIONS.forEach(R=>{const[sx,sy]=scr({x:R.cx,y:R.cy-520});banner(R.n,sx,sy,R.col)});
+   label(L,sx,sy+bob+220*sc);waystone(LECTS.indexOf(L)+1,sx-300*sc,sy+bob-150*sc,stars(L.id));
+   if(L.id===nx){const ay=sy+bob-330*sc-Math.abs(Math.sin(t*3))*30*cam.z;ctx.font=`${Math.max(10,Math.round(22*cam.z))}px "Press Start 2P"`;ctx.textAlign='center';ctx.fillStyle='#14213d';ctx.fillText('NEXT',sx+2,ay+2);ctx.fillStyle='#ffe48a';ctx.fillText('NEXT',sx,ay);ctx.beginPath();ctx.moveTo(sx-14*Math.max(.5,cam.z),ay+10*cam.z);ctx.lineTo(sx+14*Math.max(.5,cam.z),ay+10*cam.z);ctx.lineTo(sx,ay+34*cam.z);ctx.fill();ctx.textAlign='left'}});
+  const f=LECTS[0],l=LECTS[LECTS.length-1];{const[sx,sy]=scr(pos[f.id]);banner('START ▶',sx-470*cam.z,sy-60*cam.z,'#2f8a5a')}{const[sx,sy]=scr(pos[l.id]);banner('◀ FINALE',sx+480*cam.z,sy-60*cam.z,'#b5523b')}
  }
  function cloud(x,y,s,night){ctx.fillStyle=night?'rgba(200,210,255,.18)':'rgba(255,255,255,.85)';const b=12*s;[[0,0,6,2],[1,-1,4,1],[-2,1,3,1],[4,1,3,1]].forEach(([a,c,w,h])=>ctx.fillRect(x+a*b,y+c*b,w*b,h*b))}
- function bridge(a,b){ctx.strokeStyle='#8a5a35';ctx.lineWidth=Math.max(2,10*cam.z);ctx.setLineDash([12*cam.z,8*cam.z]);ctx.beginPath();ctx.moveTo(a[0],a[1]+40*cam.z);ctx.lineTo(b[0],b[1]+40*cam.z);ctx.stroke();ctx.setLineDash([])}
+ function bridge(a,b,gold,t,k){const y=40*cam.z;ctx.lineCap='round';ctx.strokeStyle=gold?'rgba(255,228,138,.45)':'rgba(255,255,255,.35)';ctx.lineWidth=Math.max(5,26*cam.z);ctx.beginPath();ctx.moveTo(a[0],a[1]+y);ctx.lineTo(b[0],b[1]+y);ctx.stroke();
+  ctx.strokeStyle=gold?'#e3ac2a':'#8a5a35';ctx.lineWidth=Math.max(2,11*cam.z);ctx.setLineDash([14*cam.z,9*cam.z]);ctx.lineDashOffset=gold?-t*30*cam.z:0;ctx.beginPath();ctx.moveTo(a[0],a[1]+y);ctx.lineTo(b[0],b[1]+y);ctx.stroke();ctx.setLineDash([]);ctx.lineCap='butt'}
+ function waystone(n,x,y,st){const r=Math.max(9,34*cam.z);ctx.fillStyle=st===3?'#f6c343':st?'#7cc7ff':'#fffaf0';ctx.strokeStyle='#14213d';ctx.lineWidth=Math.max(2,4*cam.z);ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.stroke();ctx.fillStyle='#14213d';ctx.font=`${Math.max(8,Math.round(22*cam.z))}px "Press Start 2P"`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n,x,y+1);ctx.textAlign='left';ctx.textBaseline='alphabetic'}
  function banner(t,x,y,col){ctx.font=`${Math.max(9,Math.round(22*cam.z))}px "Press Start 2P"`;const w=ctx.measureText(t).width+24;ctx.fillStyle=col||'#1d2440';ctx.fillRect(x-w/2,y-18*Math.max(.5,cam.z),w,36*Math.max(.5,cam.z));ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,x,y);ctx.textAlign='left'}
  function label(L,x,y){const full=cam.z>.42;const big=Math.max(11,Math.round(26*cam.z)),sm=Math.max(10,Math.round(17*cam.z));ctx.textAlign='center';ctx.textBaseline='top';
   const t1=L.id+' '+L.short,t2='('+L.lec+': '+L.t+')',st=starStr(stars(L.id))+(S.boss[L.id]?' 👑':'');
@@ -841,7 +841,7 @@ const MAP=(()=>{
   ctx.fillStyle='#14213d';ctx.font=`900 ${big}px Nunito`;ctx.fillText(t1,x,y+3);let yy=y+big+5;
   if(full){ctx.fillStyle='#3a4a6b';ctx.font=`700 ${sm}px Nunito`;ctx.fillText(t2,x,yy);yy+=sm+2}
   ctx.fillStyle='#e0a000';ctx.font=`${sm+1}px Nunito`;ctx.fillText(st,x,yy);ctx.textAlign='left'}
- function list(){const el=$('#mapList');if(!el)return;el.innerHTML=REGIONS.map(R=>`<div style="margin:6px 0 10px"><b style="color:${R.col}">${esc(R.n)}</b><div class="grid" style="margin-top:6px">${LECTS.filter(l=>l.r===R.id).map(L=>{const s=lectStats(L.id);return`<button class="item" style="text-align:left" onclick="ISLE.enter('${L.id}')"><div class="nm">${esc(L.id)} ${esc(L.short)}</div><div class="ds">(${esc(L.lec)}: ${esc(L.t)})</div><div class="stars">${starStr(stars(L.id))}${S.boss[L.id]?' 👑':''}</div><div class="bar"><i style="width:${Math.round(s.pct*100)}%"></i></div><div class="muted">${s.cor}/${s.n} correct${s.n?'':' · coming soon'}</div></button>`}).join('')}</div></div>`).join('')}
+ function list(){const el=$('#mapList');if(!el)return;const nx=nextId();el.innerHTML=`<b>Lecture order</b> <span class="muted">· follow the trail 4.01 → 4.21.4 · biome = topic region</span><div class="grid" style="margin-top:8px">${LECTS.map((L,k)=>{const s=lectStats(L.id),R=REGIONS.find(r=>r.id===L.r);return`<button class="item" style="text-align:left;${L.id===nx?'outline:4px solid #ffd34d':''}" onclick="ISLE.enter('${L.id}')"><div class="muted" style="font-weight:800">#${k+1} · <span style="color:${R.col}">${esc(R.n)}</span>${L.id===nx?' · ▶ NEXT':''}</div><div class="nm">${esc(L.id)} ${esc(L.short)}</div><div class="ds">(${esc(L.lec)}: ${esc(L.t)})</div><div class="stars">${starStr(stars(L.id))}${S.boss[L.id]?' 👑':''}</div><div class="bar"><i style="width:${Math.round(s.pct*100)}%"></i></div><div class="muted">${s.cor}/${s.n} correct</div></button>`}).join('')}</div>`}
  return{init,list};
 })();
 // ---------- ISLAND (walkable) ----------
@@ -1100,9 +1100,9 @@ const OFFUI={render(){const host=$('#p-off');const lects=LECTS.filter(L=>L.qs.so
 // ---------- Study Notes ----------
 const NOTESUI={render(open){const host=$('#p-notes');host.innerHTML=`<div class="card row"><input type="text" id="nSearch" placeholder="Search notes (e.g. cholesteatoma, Little's area, flail chest)" style="flex:1;min-width:220px"><span class="muted" id="nCount"></span></div><div id="nList"></div>`;
   const draw=()=>{const q=($('#nSearch').value||'').toLowerCase().trim();let n=0;
-   $('#nList').innerHTML=REGIONS.map(R=>{const ls=LECTS.filter(L=>L.r===R.id);const body=ls.map(L=>{const notes=L.notes.filter(x=>!q||(x.h+' '+x.b).toLowerCase().includes(q));if(q&&!notes.length)return'';n+=notes.length;
+   $('#nList').innerHTML=[0].map(()=>{const ls=LECTS;const body=ls.map(L=>{const notes=L.notes.filter(x=>!q||(x.h+' '+x.b).toLowerCase().includes(q));if(q&&!notes.length)return'';n+=notes.length;
      return`<details class="nlec" ${open===L.id||q?'open':''} id="nl-${L.id.replace(/\./g,'_')}"><summary>${esc(L.id)} ${esc(L.short)} <span class="muted">(${esc(L.lec)}: ${esc(L.t)}) · ${L.notes.length} notes</span></summary><div class="nbody">${notes.length?notes.map(x=>`<div class="tome"><h4>${esc(x.h)}</h4><div class="tb">${abx(x.b)}</div>${x.f?`<div class="flag">⚠ ${x.f}</div>`:''}<div class="cite">📖 ${esc(L.lec)}: ${esc(L.t)}${x.s?' · '+esc(x.s):''}</div></div>`).join(''):'<div class="muted">Notes coming soon.</div>'}</div></details>`}).join('');
-    return body?`<h3 style="color:${R.col};margin:16px 0 8px">${esc(R.n)}</h3>${body}`:''}).join('');$('#nCount').textContent=q?n+' matching notes':''};
+    return body}).join('');$('#nCount').textContent=q?n+' matching notes':''};
   $('#nSearch').oninput=draw;draw();if(open){const el=$('#nl-'+open.replace(/\./g,'_'));el&&setTimeout(()=>el.scrollIntoView({behavior:'smooth'}),50)}},
  openLect(id){const L=LMAP[id];modal(`<div class="row" style="justify-content:space-between"><b class="px" style="font-size:11px">📖 TOME</b><button class="btn gray" onclick="closeModal()">Close</button></div><h3 style="margin:8px 0 2px">${esc(L.id)} ${esc(L.short)}</h3><div class="muted">(${esc(L.lec)}: ${esc(L.t)})</div>${L.notes.map(x=>`<div class="tome"><h4>${esc(x.h)}</h4><div class="tb">${abx(x.b)}</div>${x.f?`<div class="flag">⚠ ${x.f}</div>`:''}<div class="cite">${esc(x.s||'')}</div></div>`).join('')||'<p>Notes coming soon.</p>'}`)}};
 // ---------- Practice Quiz ----------
@@ -1284,6 +1284,8 @@ addRegion({id:'chest',n:'Chest Fortress',col:'#5a5f6a',halo:'rgba(200,200,220,.1
  ['4.21.3','Hughes','Chest Trauma Part 3: Potentially Life-Threatening Injuries','Potential Threats','chest'],
  ['4.21.4','Hughes','Chest Trauma Part 4: Procedures','Procedures','chest'],
 ].forEach(([id,lec,t,short,r])=>addLect({id,lec,t,short,r}));
+// lecture order (4.01 -> 4.21.4) drives the sky trail, lists, notes, quiz chips
+LECTS.sort((a,b)=>{const pa=a.id.split('.').map(Number),pb=b.id.split('.').map(Number);for(let i=0;i<3;i++){const d=(pa[i]||0)-(pb[i]||0);if(d)return d}return 0});
 
 // auto-generated by mkimg.py
 const IMG={};
