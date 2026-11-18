@@ -377,9 +377,9 @@ const HERO=(()=>{
   if(back){P(bx,hy,8,6,hair)}
   else{
    P(bx,hy,8,2,hair);P(bx,hy+2,1,2,hair);P(bx+7,hy+2,1,2,hair);
-   const ey=cl.eyes||'#1a1a2a';P(bx+2,hy+4,1,1,'#fff');P(bx+5,hy+4,1,1,'#fff');P(bx+2,hy+4,1,1,ey);P(bx+5,hy+4,1,1,ey);
-   P(bx+1,hy+4,1,1,'#fff');P(bx+6,hy+4,1,1,'#fff');
-   P(bx+3,hy+6,2,1,'#b0604a');
+   const ey=cl.eyes||'#1a1a2a';P(bx+3,hy+4,1,1,'#fff');P(bx+6,hy+4,1,1,'#fff');P(bx+4,hy+4,1,1,ey);P(bx+7,hy+4,1,1,ey);
+   P(bx,hy+2,2,4,hair);P(bx+7,hy+3,1,2,'#00000022');
+   P(bx+5,hy+6,2,1,'#b0604a');P(bx+7,hy+5,1,1,'rgba(0,0,0,.15)');
    if(cl.beard){P(bx+1,hy+6,6,2,cl.beard);P(bx+2,hy+8,4,1,cl.beard)}
    if(cl.mask){P(bx,hy+5,8,3,cl.mask);P(bx,hy+2,8,1,cl.mask)}
    if(cl.skinOverride){P(bx+1,hy+4,2,1,cl.eyes);P(bx+5,hy+4,2,1,cl.eyes)}
@@ -747,28 +747,31 @@ function genIsland(L){
  // spawn near front-bottom
  let spawn=null;for(let s=2*N;s>0&&!spawn;s--)for(let x=0;x<N;x++){const y=s-x;const t=tile(x,y);if(t&&t.h===1&&Math.abs(x-y)<3){spawn={x,y};break}}
  spawn=spawn||{x:10,y:10};
- const free=()=>{for(let k=0;k<400;k++){const x=1+(r()*(N-2))|0,y=1+(r()*(N-2))|0;const t=tile(x,y);if(t&&t.h&&t.walk&&!t.ex.length&&!t.obj&&Math.abs(x-spawn.x)+Math.abs(y-spawn.y)>2)return{x,y,t}}return null};
+ const reserve=(x,y,R)=>{for(let a=-1;a<=R;a++)for(let b=-1;b<=R;b++){const t=tile(x+a,y+b);if(t)t.res=1}};
+ const free=(near)=>{for(let k=0;k<600;k++){let x=1+(r()*(N-2))|0,y=1+(r()*(N-2))|0;if(near&&k<300){x=spawn.x+((r()*9)|0)-6;y=spawn.y+((r()*9)|0)-6}const t=tile(x,y);const d=Math.abs(x-spawn.x)+Math.abs(y-spawn.y);if(t&&t.h&&t.walk&&!t.ex.length&&!t.obj&&!t.res&&d>2&&(!near||d<=7))return{x,y,t}}return null};
+ // objects FIRST, each with a clear zone in front (toward camera) so foliage never hides learning content
+ const objs=[];
+ const place=(type,extra,R,near)=>{const p=free(near)||free();if(!p)return null;p.t.obj=Object.assign({type,x:p.x,y:p.y},extra||{});p.t.walk=false;objs.push(p.t.obj);reserve(p.x,p.y,R);return p.t.obj};
+ place('tome',null,3,true);
+ if(L.qs.some(id=>QMAP[id]&&QMAP[id].off))place('oracle',null,3,true);
+ place('altar',null,3);
+ for(let i=0;i<5;i++)place('ore',{m:B.ore[i%B.ore.length],hp:1},1);
+ reserve(spawn.x-1,spawn.y-1,2);
  // water ponds
- if(B.water){const p=free();if(p){[[0,0],[1,0],[0,1],[1,1]].forEach(([a,b])=>{const t=tile(p.x+a,p.y+b);if(t&&t.h===1&&!(p.x+a===spawn.x&&p.y+b===spawn.y)){t.top=B.ice?'ice':'water';t.walk=!!B.ice}})}}
- // trees / pillars
+ if(B.water){const p=free();if(p){[[0,0],[1,0],[0,1],[1,1]].forEach(([a,b])=>{const t=tile(p.x+a,p.y+b);if(t&&t.h===1&&!t.res&&!t.obj){t.top=B.ice?'ice':'water';t.walk=!!B.ice}})}}
+ // trees / pillars (never on or leaning over reserved tiles)
+ const canopy=(x,y,z,m)=>[[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>{const t=tile(x+a,y+b);if(t&&!t.res&&!t.obj)t.ex.push({z,m,air:1})});
  const nTree=B.castle?6:9;
  for(let i=0;i<nTree;i++){const p=free();if(!p)continue;const z=p.t.h;
   if(B.tree==='cactus'){const hh=2+((r()*2)|0);for(let k=0;k<hh;k++)p.t.ex.push({z:z+k,m:'leaves',sm:.7})}
   else if(B.tree==='pillar'){p.t.ex.push({z,m:'brick'},{z:z+1,m:'brick'},{z:z+2,m:i%2?'lantern':'iron'})}
-  else if(B.tree==='mush'){p.t.ex.push({z,m:'bone'},{z:z+1,m:'bone'},{z:z+2,m:'mush'});[[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>{const t=tile(p.x+a,p.y+b);if(t)t.ex.push({z:z+2,m:'mush',air:1})})}
-  else{p.t.ex.push({z,m:'log'},{z:z+1,m:'log'},{z:z+2,m:B.tree},{z:z+3,m:B.tree});[[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>{const t=tile(p.x+a,p.y+b);if(t)t.ex.push({z:z+2,m:B.tree,air:1})})}
-  p.t.walk=false}
+  else if(B.tree==='mush'){p.t.ex.push({z,m:'bone'},{z:z+1,m:'bone'},{z:z+2,m:'mush'});canopy(p.x,p.y,z+2,'mush')}
+  else{p.t.ex.push({z,m:'log'},{z:z+1,m:'log'},{z:z+2,m:B.tree},{z:z+3,m:B.tree});canopy(p.x,p.y,z+2,B.tree)}
+  p.t.walk=false;p.t.tall=1}
  // rocks / small deco
  for(let i=0;i<5;i++){const p=free();if(!p)continue;p.t.ex.push({z:p.t.h,m:B.rock,sm:.55});p.t.walk=false}
  // castle walls for chest region
- if(B.castle){for(let x=0;x<N;x++)for(let y=0;y<N;y++){const t=tile(x,y);if(!t.h)continue;const edgeN=[[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>{const u=tile(x+a,y+b);return!u||!u.h});if(edgeN&&(x+y)%2===0&&!(Math.abs(x-spawn.x)<2&&Math.abs(y-spawn.y)<2)&&!t.ex.length){t.ex.push({z:t.h,m:'brick',sm:.8});t.walk=false}}}
- // objects: ores, tome, oracle, altar
- const objs=[];
- const place=(type,extra)=>{const p=free();if(!p)return null;p.t.obj=Object.assign({type,x:p.x,y:p.y},extra||{});p.t.walk=false;objs.push(p.t.obj);return p.t.obj};
- for(let i=0;i<5;i++)place('ore',{m:B.ore[i%B.ore.length],hp:1});
- place('tome');
- if(L.qs.some(id=>QMAP[id]&&QMAP[id].off))place('oracle');
- place('altar');
+ if(B.castle){for(let x=0;x<N;x++)for(let y=0;y<N;y++){const t=tile(x,y);if(!t.h||t.res||t.obj)continue;const edgeN=[[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>{const u=tile(x+a,y+b);return!u||!u.h});if(edgeN&&(x+y)%2===0&&!t.ex.length){t.ex.push({z:t.h,m:'brick',sm:.8});t.walk=false}}}
  const isl={N,T,spawn,objs,B,R,L,seed};
  return ISLES[L.id]=isl;
 }
@@ -846,11 +849,11 @@ const MAP=(()=>{
 })();
 // ---------- ISLAND (walkable) ----------
 const ISLE=(()=>{
- let cv,ctx,isl=null,L=null,pl=null,mobs=[],pet=null,keys={},path=[],Z=2,raf=0,lastStep=0,msgT=0,parts=[],trail=[];
+ let cv,ctx,isl=null,L=null,pl=null,mobs=[],pet=null,keys={},path=[],Z=2,raf=0,lastStep=0,msgT=0,parts=[],trail=[],mouse=null,hov=null,pend=null,lastO=null;
  function enter(id){L=LMAP[id];if(!L.qs.length){toast('This island is still being built. Check back soon!');return}isl=genIsland(L);
   pl={x:isl.spawn.x,y:isl.spawn.y,fx:isl.spawn.x,fy:isl.spawn.y,dir:'down',fr:0,t:0};pet={fx:pl.x,fy:pl.y};path=[];
   mobs=[];const types=MOBS.REGION_MOBS[L.r]||['slime'];for(let i=0;i<5;i++)spawnMob(types[i%types.length]);
-  cv=$('#isleCv');ctx=cv.getContext('2d');$('#isle').classList.add('on');document.body.style.overflow='hidden';info();msg('Walk into creatures to fight, ore to mine. 📖 Tome = notes, 🗿 Oracle = official Qs, ⛩ Altar = boss.',5000);
+  cv=$('#isleCv');ctx=cv.getContext('2d');$('#isle').classList.add('on');document.body.style.overflow='hidden';info();hov=null;pend=null;if(!S.tut){tutorial()}else msg('Hover anything that glows and click it. 📖 Tome = notes · 🗿 Oracle = official Qs · ⛩ Altar = boss',4500);
   cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
  function exit(){$('#isle').classList.remove('on');document.body.style.overflow='';cancelAnimationFrame(raf);MAP.list();isl=null}
  function info(){const s=lectStats(L.id);$('#isleInfo').innerHTML=`<div class="t1">${esc(L.id)} ${esc(L.short.toUpperCase())}</div><div class="t2">(${esc(L.lec)}: ${esc(L.t)})</div>`;
@@ -876,6 +879,30 @@ const ISLE=(()=>{
   else if(o.type==='altar'){const s=lectStats(L.id);if(s.seen/s.n<.5&&!S.boss[L.id]){msg(`⛩ The altar is sealed. See at least half of this island's questions first (${s.seen}/${Math.ceil(s.n/2)}).`,3500);return}
    const pool=L.qs.filter(id=>!QMAP[id].sa&&!LOWYIELD.has(id));const ids=shuffle(pool.slice()).sort((a,b)=>((S.qs[a]&&S.qs[a].l)?1:0)-((S.qs[b]&&S.qs[b].l)?1:0)).slice(0,6);
    BATTLE.run({kind:'boss',mob:(MOBS.REGION_MOBS[L.r]||['slime'])[0],lect:L,qids:ids,need:5,lives:3,onEnd:(res)=>{if(res.win&&!S.boss[L.id]){S.boss[L.id]=1;grant(150,120);S.crates++;toast('👑 BOSS DEFEATED! +150 ◆ +1 Loot Crate',3500);burst(['#ffe48a','#3ee0d0','#ff7a2a'],80)}save();info()}})}}
+ function tutorial(){modal(`<h3 class="px" style="font-size:13px">HOW TO PLAY AN ISLAND</h3>
+  <div style="font-size:15px;line-height:1.55"><p>🖱 <b>Hover</b> over anything: interactable things <b>glow</b> and show a label. <b>Click</b> it and your hero walks over and uses it automatically.</p>
+  <p>⚔ <b>Creatures</b> wander around: each one is a question. Right answer = it shatters and drops shards + blocks. Wrong = you lose a ♥ (no shards lost).</p>
+  <p>⛏ <b>Glittering ore blocks</b> = a question each, with rare blocks for your Home Island.</p>
+  <p>📖 <b>Tome</b> = this lecture's study notes. 🗿 <b>Oracle</b> = the professor's official questions. ⛩ <b>Altar</b> = the island boss (unlocks after you've seen half the questions).</p>
+  <p>⌨ Keyboard: <b>WASD / arrows</b> to walk, <b>Space</b> to use whatever is on the glowing tile in front of you. Phone: tap things or use the pad.</p></div>
+  <div class="row" style="margin-top:8px"><button class="btn green" id="tutOk">Let's go!</button><button class="btn gray" id="tutAgain">Show again next time</button></div>`);
+  $('#tutOk').onclick=()=>{S.tut=1;save();closeModal()};$('#tutAgain').onclick=()=>closeModal()}
+ function frontTile(){const[dx,dy]=DIRS[pl.dir];return{x:pl.x+dx,y:pl.y+dy}}
+ function targetAt(mx,my){if(!lastO)return null;const o=lastO;let best=null,bk=-1;
+  isl.objs.forEach(ob=>{const tl=tile(ob.x,ob.y);const[X,Y]=isoXY(ob.x,ob.y,tl.h,Z);const sx=X+o.ox,sy=Y+o.oy;const top=ob.type==='ore'?sy:sy-22*Z;if(mx>sx-17*Z&&mx<sx+17*Z&&my>top&&my<sy+34*Z&&ob.x+ob.y>bk){bk=ob.x+ob.y;best={kind:'obj',ob,x:ob.x,y:ob.y}}});
+  mobs.forEach(m=>{const tl=tile(m.x,m.y);const[X,Y]=isoXY(m.fx,m.fy,(tl?tl.h:1)-1,Z);const sx=X+o.ox,sy=Y+o.oy+8*Z;if(mx>sx-13*Z&&mx<sx+13*Z&&my>sy-28*Z&&my<sy+4*Z&&m.x+m.y+.5>bk){bk=m.x+m.y+.5;best={kind:'mob',m,x:m.x,y:m.y}}});
+  return best}
+ function label(tg){if(tg.kind==='mob')return'⚔ '+MOBS.D[tg.m.type].n+' · click to fight (1 question)';const ob=tg.ob;
+  if(ob.type==='ore')return ob.cool&&Date.now()-ob.cool<8000?'⛏ Mined out · regrowing…':'⛏ '+VOX.MAT[ob.m].n+' · click to mine (1 question)';
+  if(ob.type==='tome')return'📖 Tome · read '+L.id+' '+L.short+' notes';if(ob.type==='oracle')return'🗿 Oracle · '+L.qs.filter(id=>QMAP[id].off).length+' official questions';
+  const s=lectStats(L.id);return S.boss[L.id]?'⛩ Altar · boss defeated 👑 (rematch for practice)':(s.seen/s.n<.5?'⛩ Boss altar · sealed (see '+(Math.ceil(s.n/2)-s.seen)+' more questions)':'⛩ Boss altar · click to challenge the boss')}
+ function useTarget(tg){if(tg.kind==='mob')fightMob(tg.m);else interact(tg.ob,tile(tg.x,tg.y))}
+ function goUse(tg){const dx=tg.x-pl.x,dy=tg.y-pl.y;if(Math.abs(dx)+Math.abs(dy)===1){pl.dir=Object.keys(DIRS).find(d=>DIRS[d][0]===dx&&DIRS[d][1]===dy);path=[];useTarget(tg);return}
+  const steps=pathTo(tg.x,tg.y,true);if(!steps){msg('Cannot reach that from here. Try walking closer.');return}path=steps;pend=tg}
+ function pathTo(tx,ty,adj){const prev={},q=[[pl.x,pl.y]],key=(x,y)=>x+','+y;prev[key(pl.x,pl.y)]=null;let found=null;
+  while(q.length){const[x,y]=q.shift();if(adj?(Math.abs(x-tx)+Math.abs(y-ty)===1):(x===tx&&y===ty)){found=[x,y];break}
+   for(const d in DIRS){const[dx,dy]=DIRS[d];const nx=x+dx,ny=y+dy;if(prev[key(nx,ny)]!==undefined)continue;if(!canWalk(nx,ny,tile(x,y).h))continue;prev[key(nx,ny)]=[x,y,d];q.push([nx,ny])}}
+  if(!found)return null;const steps=[];let k=key(found[0],found[1]);while(prev[k]){const[px,py,d]=prev[k];steps.unshift(d);k=key(px,py)}return steps}
  // tap to move: BFS
  function tapAt(mx,my){const sc=screenOrigin();let best=null,bd=1e9;for(let x=0;x<isl.N;x++)for(let y=0;y<isl.N;y++){const t=tile(x,y);if(!t.h)continue;const[X,Y]=isoXY(x,y,t.h-1,Z);const cx=X+sc.ox,cy=Y+sc.oy+8*Z;const d=Math.hypot(mx-cx,(my-cy)*2);if(d<bd){bd=d;best={x,y}}}
   if(!best||bd>40*Z)return;
@@ -889,18 +916,19 @@ const ISLE=(()=>{
  function screenOrigin(){const r=cv.getBoundingClientRect();const t=tile(pl.x,pl.y);const[X,Y]=isoXY(pl.fx,pl.fy,(t?t.h:1)-1,Z);return{ox:r.width/2-X,oy:r.height/2-Y+40}}
  // input
  addEventListener('keydown',e=>{if(!isl||BATTLE.open||$('#modal').classList.contains('on'))return;const k=e.key.toLowerCase();const map={arrowup:'up',w:'up',arrowdown:'down',s:'down',arrowleft:'left',a:'left',arrowright:'right',d:'right'};
-  if(map[k]){e.preventDefault();path=[];if(!keys[k]){keys[k]=1;tryMove(map[k]);lastStep=performance.now()}}else if(k===' '||k==='enter'||k==='e'){e.preventDefault();act()}else if(k==='escape')exit()});
+  if(map[k]){e.preventDefault();path=[];pend=null;if(!keys[k]){keys[k]=1;tryMove(map[k]);lastStep=performance.now()}}else if(k===' '||k==='enter'||k==='e'){e.preventDefault();act()}else if(k==='escape')exit()});
  addEventListener('keyup',e=>{delete keys[e.key.toLowerCase()]});
  function holdDir(){const map={arrowup:'up',w:'up',arrowdown:'down',s:'down',arrowleft:'left',a:'left',arrowright:'right',d:'right'};for(const k in keys)if(map[k])return map[k];return null}
  function bind(){$('#isleBack').onclick=exit;$$('#dpad button').forEach(b=>{let iv=null;const d=b.dataset.d;const go=()=>{d==='act'?act():tryMove(d)};
    b.addEventListener('pointerdown',e=>{e.preventDefault();path=[];go();if(d!=='act')iv=setInterval(go,190)});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>clearInterval(iv)))});
-  $('#isleCv').addEventListener('pointerdown',e=>{if(!isl)return;const r=e.target.getBoundingClientRect();tapAt(e.clientX-r.left,e.clientY-r.top)})}
+  const cvv=$('#isleCv');cvv.addEventListener('pointerdown',e=>{if(!isl||BATTLE.open)return;const r=e.target.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;const tg=targetAt(mx,my);pend=null;if(tg)goUse(tg);else tapAt(mx,my)});
+  cvv.addEventListener('pointermove',e=>{const r=e.target.getBoundingClientRect();mouse={x:e.clientX-r.left,y:e.clientY-r.top}});cvv.addEventListener('pointerleave',()=>{mouse=null})}
  // ---- render loop ----
  function loop(now){raf=requestAnimationFrame(loop);if(!isl)return;const r=cv.getBoundingClientRect(),dpr=devicePixelRatio||1;
   if(cv.width!==Math.round(r.width*dpr)||cv.height!==Math.round(r.height*dpr)){cv.width=r.width*dpr;cv.height=r.height*dpr}
   Z=r.width<700?2:3;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.imageSmoothingEnabled=false;const t=now/1000;
   // movement: held keys / path
-  if(!BATTLE.open){const hd=holdDir();if(hd&&now-lastStep>170){tryMove(hd);lastStep=now}else if(!hd&&path.length&&now-lastStep>150){tryMove(path.shift());lastStep=now}}
+  if(!BATTLE.open){const hd=holdDir();if(hd&&now-lastStep>170){tryMove(hd);lastStep=now}else if(!hd&&path.length&&now-lastStep>150){tryMove(path.shift());lastStep=now;if(!path.length&&pend){const tg=pend;pend=null;const cur=tg.kind==='mob'?(mobs.includes(tg.m)&&{x:tg.m.x,y:tg.m.y}):{x:tg.x,y:tg.y};if(cur){const t2=Object.assign({},tg,cur);setTimeout(()=>goUse(t2),120)}}}}
   pl.fx+=(pl.x-pl.fx)*.3;pl.fy+=(pl.y-pl.fy)*.3;pet.fx+=(pl.fx-pet.fx-(pl.dir==='right'?1:pl.dir==='left'?-1:0)*.9-pet.fx*0)*.06;pet.fy+=(pl.fy-pet.fy-(pl.dir==='down'?1:pl.dir==='up'?-1:0)*.9)*.06;
   // mobs wander
   mobs.forEach(m=>{m.t-=1/60;if(m.t<=0&&!BATTLE.open){m.t=1+Math.random()*1.6;const ds=Object.values(DIRS);const[dx,dy]=ds[(Math.random()*4)|0];const nt=tile(m.x+dx,m.y+dy),ct=tile(m.x,m.y);if(nt&&nt.h&&nt.walk&&Math.abs(nt.h-ct.h)<=1&&!(m.x+dx===pl.x&&m.y+dy===pl.y)&&!mobs.some(o=>o!==m&&o.x===m.x+dx&&o.y===m.y+dy)){m.x+=dx;m.y+=dy;m.dir=dx-dy>0?1:-1}}m.fx+=(m.x-m.fx)*.15;m.fy+=(m.y-m.fy)*.15});
@@ -911,7 +939,8 @@ const ISLE=(()=>{
   if(sky==='aurora'){for(let k=0;k<3;k++){ctx.fillStyle=['rgba(46,196,164,.2)','rgba(138,74,216,.16)','rgba(120,255,200,.12)'][k];ctx.beginPath();ctx.moveTo(0,0);for(let xx=0;xx<=r.width;xx+=24)ctx.lineTo(xx,r.height*(.2+k*.06)+Math.sin(xx/140+t*.7+k)*36);ctx.lineTo(r.width,0);ctx.fill()}}
   // far clouds
   for(let i=0;i<8;i++){const cx=((i*420+t*12*(1+i%3))%(r.width+400))-200,cy=r.height*(.15+((i*37)%60)/100);ctx.fillStyle=night?'rgba(200,210,255,.12)':'rgba(255,255,255,.75)';ctx.fillRect(cx,cy,140,26);ctx.fillRect(cx+30,cy-16,70,18)}
-  const o=screenOrigin();const N=isl.N;
+  const o=screenOrigin();lastO=o;const N=isl.N;hov=mouse&&!BATTLE.open?targetAt(mouse.x,mouse.y):null;cv.style.cursor=hov?'pointer':'default';
+  const ft=frontTile();const fadeAround=[{x:pl.x,y:pl.y}];if(hov)fadeAround.push({x:hov.x,y:hov.y});
   // draw world in painter order
   const ents=[];ents.push({k:pl.fx+pl.fy+.55,f:()=>drawPlayer(o,t)});if(S.eq.pet!=='none')ents.push({k:pet.fx+pet.fy+.5,f:()=>drawPet(o,t)});
   mobs.forEach(m=>ents.push({k:m.fx+m.fy+.5,f:()=>drawMob(m,o,t)}));
@@ -919,7 +948,8 @@ const ISLE=(()=>{
   for(let s=0;s<2*N;s++){
    for(let i=0;i<N;i++){const j=s-i;if(j<0||j>=N)continue;const tl=isl.T[i][j];
     if(tl.h){for(let z=-tl.depth;z<tl.h;z++){const[X,Y]=isoXY(i,j,z,Z);const mat=z===tl.h-1?tl.top:(z<-1?B.rock:B.sub);if(tl.top==='water'&&z===tl.h-1){drawCube(ctx,'water',X+o.ox,Y+o.oy+3*Z+Math.sin(t*2+i+j)*Z,Z)}else drawCube(ctx,mat,X+o.ox,Y+o.oy,Z)}}
-    tl.ex.forEach(e=>{const[X,Y]=isoXY(i,j,e.z,Z);drawCube(ctx,e.m,X+o.ox,Y+o.oy,Z,e.sm)});
+    const fade=fadeAround.some(p=>i>=p.x&&j>=p.y&&(i>p.x||j>p.y)&&i-p.x<=3&&j-p.y<=3);tl.ex.forEach(e=>{const[X,Y]=isoXY(i,j,e.z,Z);if(fade&&(tl.tall||e.air))ctx.globalAlpha=.3;drawCube(ctx,e.m,X+o.ox,Y+o.oy,Z,e.sm);ctx.globalAlpha=1});
+    if(i===ft.x&&j===ft.y&&tl.h)faceMark(i,j,tl,o,t);
     if(tl.obj)drawObj(tl.obj,tl,o,t)}
    while(ei<ents.length&&ents[ei].k<=s+1){ents[ei].f();ei++}}
   while(ei<ents.length){ents[ei].f();ei++}
@@ -927,21 +957,29 @@ const ISLE=(()=>{
   trail=trail.filter(p=>p.life-->0);trail.forEach(p=>{const[X,Y]=isoXY(p.x,p.y,p.h-1,Z);const col=S.eq.trail==='rainbow'?`hsl(${(p.life*9+t*200)%360},90%,60%)`:S.eq.trail==='fire'?(p.life%2?'#ff7a2a':'#ffd34d'):S.eq.trail==='hearts'?'#ff6a9a':'#ffffff';ctx.fillStyle=col;ctx.globalAlpha=p.life/40;const s=(S.eq.trail==='hearts'?5:4)*Z*(p.life/40);ctx.fillRect(X+o.ox-s/2+Math.sin(p.life)*4,Y+o.oy+8*Z-p.life*.4-s/2,s,s)});ctx.globalAlpha=1;
   // weather/effects
   drawFx(r,t,o,night);
+  if(hov)hoverMark(hov,o,t);
  }
  function drawObj(ob,tl,o,t){const[X,Y]=isoXY(ob.x,ob.y,tl.h,Z);const sx=X+o.ox,sy=Y+o.oy;
   if(ob.type==='ore'){const cd=ob.cool&&Date.now()-ob.cool<8000;drawCube(ctx,cd?isl.B.rock:ob.m,sx,sy,Z);if(!cd){ctx.fillStyle='rgba(255,255,255,'+(.3+.3*Math.sin(t*4+ob.x))+')';ctx.fillRect(sx-2*Z,sy+4*Z,3*Z,3*Z)}else ob.cool&&Date.now()-ob.cool>=8000&&(ob.cool=0)}
-  else if(ob.type==='tome'){drawCube(ctx,'plank',sx,sy,Z);ctx.font=`${12*Z}px serif`;ctx.textAlign='center';ctx.fillText('📖',sx,sy-2*Z+Math.sin(t*2)*2*Z);ctx.textAlign='left'}
-  else if(ob.type==='oracle'){drawCube(ctx,'gold',sx,sy,Z);drawCube(ctx,'quartz',sx,sy-16*Z,Z,.7);ctx.font=`${11*Z}px serif`;ctx.textAlign='center';ctx.fillText('🗿',sx,sy-20*Z+Math.sin(t*2)*2*Z);ctx.textAlign='left';glow(sx,sy,'rgba(255,220,100,.25)',30*Z)}
+  else if(ob.type==='tome'){glow(sx,sy+4*Z,'rgba(120,200,255,.35)',36*Z);drawCube(ctx,'plank',sx,sy,Z);drawBook(sx,sy-6*Z+Math.sin(t*2)*2*Z)}
+  else if(ob.type==='oracle'){drawCube(ctx,'gold',sx,sy,Z);drawCube(ctx,'quartz',sx,sy-16*Z,Z,.7);ctx.font=`${11*Z}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;ctx.textAlign='center';ctx.fillText('🗿',sx,sy-20*Z+Math.sin(t*2)*2*Z);ctx.textAlign='left';glow(sx,sy,'rgba(255,220,100,.25)',30*Z)}
   else if(ob.type==='altar'){drawCube(ctx,'obsid',sx,sy,Z);drawCube(ctx,S.boss[L.id]?'gold':'amethyst',sx,sy-16*Z+Math.sin(t*1.5)*3*Z,Z,.55);glow(sx,sy,S.boss[L.id]?'rgba(255,220,100,.3)':'rgba(170,110,255,.3)',34*Z)}}
+ function faceMark(i,j,tl,o,t){const[X,Y]=isoXY(i,j,tl.h-1,Z);const cx=X+o.ox,cy=Y+o.oy+8*Z;const a=.45+.35*Math.sin(t*5);ctx.strokeStyle='rgba(255,228,138,'+a+')';ctx.lineWidth=2*Z;ctx.beginPath();ctx.moveTo(cx,cy-7*Z);ctx.lineTo(cx+15*Z,cy);ctx.lineTo(cx,cy+7*Z);ctx.lineTo(cx-15*Z,cy);ctx.closePath();ctx.stroke()}
+ function hoverMark(tg,o,t){let sx,sy,top;if(tg.kind==='mob'){const tl=tile(tg.m.x,tg.m.y);const[X,Y]=isoXY(tg.m.fx,tg.m.fy,(tl?tl.h:1)-1,Z);sx=X+o.ox;sy=Y+o.oy+8*Z;top=sy-30*Z}else{const tl=tile(tg.x,tg.y);const[X,Y]=isoXY(tg.x,tg.y,tl.h,Z);sx=X+o.ox;sy=Y+o.oy+16*Z;top=sy-(tg.ob.type==='ore'?18:40)*Z}
+  const pulse=.55+.35*Math.sin(t*6);glow(sx,sy-10*Z,'rgba(255,240,150,'+(.35*pulse)+')',34*Z);ctx.strokeStyle='rgba(255,228,138,'+pulse+')';ctx.lineWidth=2.5*Z;ctx.beginPath();ctx.ellipse(sx,sy+2*Z,17*Z,8*Z,0,0,7);ctx.stroke();
+  const txt=label(tg);const fs=Math.max(13,6*Z);ctx.font='800 '+fs+'px Nunito';const w=ctx.measureText(txt).width+18,h=fs+12,bx=sx-w/2,by=top-h-6*Z-Math.abs(Math.sin(t*3))*2*Z;
+  ctx.fillStyle='rgba(20,24,46,.92)';ctx.fillRect(bx,by,w,h);ctx.strokeStyle='#ffe48a';ctx.lineWidth=2;ctx.strokeRect(bx,by,w,h);ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,sx,by+h/2+1);ctx.textAlign='left';ctx.textBaseline='alphabetic'}
+ function drawBook(x,y){const u=Z*1.6,P=(a,b,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(x+a*u,y+b*u,w*u,h*u)};
+  P(-7,-6,14,9,'#14213d');P(-6,-5,6,7,'#fffaf0');P(0,-5,6,7,'#f3ead7');P(-1,-5,2,8,'#b5523b');P(-5,-3,4,1,'#9aa3ad');P(-5,-1,4,1,'#9aa3ad');P(1,-3,4,1,'#9aa3ad');P(1,-1,4,1,'#9aa3ad');P(-7,3,14,1,'#3b6fd8')}
  function glow(x,y,c,r){const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,c);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)}
  let heroCache={k:'',c:{}};
  function heroSprite(dir,fr){const k=JSON.stringify(S.eq);if(heroCache.k!==k){heroCache={k,c:{}}}const kk=dir+(fr%2);return heroCache.c[kk]||(heroCache.c[kk]=HERO.paint(S.eq,dir,fr))}
  function drawPlayer(o,t){const tl=tile(pl.x,pl.y);const h=tl?tl.h:1;const[X,Y]=isoXY(pl.fx,pl.fy,h-1,Z);const sx=X+o.ox,sy=Y+o.oy+8*Z;const moving=Math.abs(pl.x-pl.fx)+Math.abs(pl.y-pl.fy)>.05;
-  const sp=heroSprite(pl.dir==='up'?'up':'down',moving?Math.floor(t*8):0);const flip=pl.dir==='left'||pl.dir==='up';
+  const sp=heroSprite(pl.dir==='up'||pl.dir==='left'?'up':'down',moving?Math.floor(t*8):0);const flip=pl.dir==='down'||pl.dir==='left';
   ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(sx,sy,8*Z,4*Z,0,0,7);ctx.fill();
   const cl=HERO.CLASS[S.eq.cls];if(cl&&cl.glow)glow(sx,sy-16*Z,cl.glow+'55',26*Z);if(S.fx.aura)glow(sx,sy-14*Z,'rgba(255,230,120,.35)',30*Z);
   ctx.save();ctx.translate(sx,sy-sp.height*Z+2*Z+(moving?-Math.abs(Math.sin(t*16))*Z:0));if(flip){ctx.scale(-1,1)}ctx.drawImage(sp,-sp.width*Z/2,0,sp.width*Z,sp.height*Z);
-  if(pl.dir!=='up'){const sw=HERO.swordSprite(S.eq.sword);ctx.drawImage(sw,(sp.width/2-1)*Z,(sp.height-22)*Z,sw.width*Z*.8,sw.height*Z*.8)}ctx.restore();
+  if(pl.dir==='down'||pl.dir==='right'){const sw=HERO.swordSprite(S.eq.sword);ctx.drawImage(sw,(sp.width/2-1)*Z,(sp.height-22)*Z,sw.width*Z*.8,sw.height*Z*.8)}ctx.restore();
   if(S.fx.halo2){ctx.strokeStyle='#ffe48a';ctx.lineWidth=2*Z;ctx.beginPath();ctx.ellipse(sx,sy-sp.height*Z-2*Z,6*Z,2*Z,0,0,7);ctx.stroke()}}
  function drawPet(o,t){const sp=HERO.petSprite(S.eq.pet,Math.floor(t*4));if(!sp)return;const tl=tile(Math.round(pet.fx),Math.round(pet.fy))||tile(pl.x,pl.y);const[X,Y]=isoXY(pet.fx,pet.fy,(tl&&tl.h?tl.h:1)-1,Z);const fly=['owl','dragon','bee'].includes(S.eq.pet);
   ctx.drawImage(sp,X+o.ox-sp.width*Z*.6+10*Z,Y+o.oy+8*Z-sp.height*Z*1.2-(fly?10*Z+Math.sin(t*3)*3*Z:0),sp.width*Z*1.2,sp.height*Z*1.2)}
@@ -965,7 +1003,8 @@ const ISLE=(()=>{
   if(S.fx.scan){ctx.fillStyle='rgba(0,0,0,.08)';for(let y=0;y<r.height;y+=4)ctx.fillRect(0,y,r.width,1)}
   if(S.fx.vignette){const g=ctx.createRadialGradient(r.width/2,r.height/2,r.height*.3,r.width/2,r.height/2,r.height*.85);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.45)');ctx.fillStyle=g;ctx.fillRect(0,0,r.width,r.height)}}
  setTimeout(bind,0);
- return{enter,exit,get L(){return L},info};
+ function hoverObj(type){const ob=isl.objs.find(o=>o.type===type);if(!ob)return;lastO=lastO||screenOrigin();const tl=tile(ob.x,ob.y);const[X,Y]=isoXY(ob.x,ob.y,tl.h,Z);mouse={x:X+lastO.ox,y:Y+lastO.oy+8*Z}}
+ return{enter,exit,get L(){return L},info,hoverObj,get dbg(){return{mouse,hov:hov&&hov.kind,lastO:!!lastO,objs:isl&&isl.objs.map(o=>o.type+':'+o.x+','+o.y),pl:pl&&pl.x+','+pl.y}}};
 })();
 
 // ===== BATTLE: question card + stage animation (mob fight / mining / oracle / boss) =====
