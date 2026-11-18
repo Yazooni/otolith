@@ -50,6 +50,7 @@ canvas{image-rendering:pixelated;display:block}
 .hudBox .t2{font-size:12px;color:#c9d2ff;font-weight:700}
 #isleBack{background:#ffd34d;color:var(--ink)}
 #dpad{position:absolute;right:16px;bottom:16px;display:grid;grid-template-columns:56px 56px 56px;grid-template-rows:56px 56px 56px;gap:4px;opacity:.9}
+#dpad .dg{opacity:.6;font-size:14px}
 #dpad button{background:rgba(255,250,240,.9);border:3px solid #0d1226;border-radius:10px;font-size:20px;font-weight:900}
 #isleMsg{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);background:rgba(20,24,46,.9);color:#fff;border:3px solid #0d1226;border-radius:10px;padding:8px 14px;font-weight:800;font-size:14px;max-width:70vw;text-align:center;display:none}
 /* battle overlay */
@@ -149,7 +150,7 @@ input[type=text],input[type=password],select{font:inherit;border:3px solid var(-
 </main>
 <div id="isle"><canvas id="isleCv"></canvas>
  <div id="isleHud"><button class="btn" id="isleBack">⟵ Sky Map</button><div class="hudBox" id="isleInfo"></div><div class="hudBox" id="isleProg"></div></div>
- <div id="dpad"><span></span><button data-d="up" title="Up-left">▲</button><span></span><button data-d="left">◀</button><button data-d="act" title="Interact">●</button><button data-d="right">▶</button><span></span><button data-d="down">▼</button><span></span></div>
+ <div id="dpad"><button data-d="ul" class="dg">↖</button><button data-d="up">▲</button><button data-d="ur" class="dg">↗</button><button data-d="left">◀</button><button data-d="act" title="Use what you are facing">●</button><button data-d="right">▶</button><button data-d="dl" class="dg">↙</button><button data-d="down">▼</button><button data-d="dr" class="dg">↘</button></div>
  <div id="isleMsg"></div>
 </div>
 <div id="battle"><div id="bWrap"><canvas id="bStage"></canvas><div id="bCard"></div></div></div>
@@ -344,8 +345,9 @@ const HERO=(()=>{
   const back=dir==='up';const skin=cl.skinOverride||SKIN[eq.skin]||SKIN.s1;const hair=eq.hairc||cl.hair||'#5a3a22';
   const step=frame%2; // walking frame
   const hy=OY,bx=OX+4; // head x 7..14
-  // cape behind (front view: edges only)
   const cp=CAPES[eq.cape];
+  if(dir==='side'){sideBody(P,cl,eq,cp,skin,hair,step,bx,hy)}else{
+  // cape behind (front view: edges only)
   if(cp&&eq.cape!=='none'&&!back){P(bx-1,hy+8,1,11,cp.c);P(bx+8,hy+8,1,11,cp.c)}
   // legs
   const lg=cl.pants,bt=cl.boot;
@@ -377,12 +379,12 @@ const HERO=(()=>{
   if(back){P(bx,hy,8,6,hair)}
   else{
    P(bx,hy,8,2,hair);P(bx,hy+2,1,2,hair);P(bx+7,hy+2,1,2,hair);
-   const ey=cl.eyes||'#1a1a2a';P(bx+3,hy+4,1,1,'#fff');P(bx+6,hy+4,1,1,'#fff');P(bx+4,hy+4,1,1,ey);P(bx+7,hy+4,1,1,ey);
-   P(bx,hy+2,2,4,hair);P(bx+7,hy+3,1,2,'#00000022');
-   P(bx+5,hy+6,2,1,'#b0604a');P(bx+7,hy+5,1,1,'rgba(0,0,0,.15)');
+   const ey=cl.eyes||'#1a1a2a';P(bx+1,hy+4,2,1,'#fff');P(bx+5,hy+4,2,1,'#fff');P(bx+2,hy+4,1,1,ey);P(bx+5,hy+4,1,1,ey);
+   P(bx+3,hy+6,2,1,'#b0604a');
    if(cl.beard){P(bx+1,hy+6,6,2,cl.beard);P(bx+2,hy+8,4,1,cl.beard)}
    if(cl.mask){P(bx,hy+5,8,3,cl.mask);P(bx,hy+2,8,1,cl.mask)}
    if(cl.skinOverride){P(bx+1,hy+4,2,1,cl.eyes);P(bx+5,hy+4,2,1,cl.eyes)}
+  }
   }
   // hat
   const hat=eq.hat==='class'?cl.hat:eq.hat;
@@ -409,8 +411,40 @@ const HERO=(()=>{
   };
   if(HP[hat])HP[hat]();
   // cape back view
-  if(cp&&eq.cape!=='none'&&back){P(bx-1,hy+8,10,12,cp.c);P(bx-1,hy+19,10,1,cp.c2);if(cp.trim)P(bx-1,hy+8,10,2,cp.c2);if(cp.stars){P(bx+1,hy+11,1,1,cp.c2);P(bx+6,hy+13,1,1,cp.c2);P(bx+3,hy+16,1,1,cp.c2)}if(cp.flame){P(bx,hy+17,2,2,cp.c2);P(bx+5,hy+16,2,3,cp.c2)}if(cp.aur){P(bx-1,hy+12,10,3,cp.c2)}}
+  if(cp&&eq.cape!=='none'&&back&&dir!=='side'){P(bx-1,hy+8,10,12,cp.c);P(bx-1,hy+19,10,1,cp.c2);if(cp.trim)P(bx-1,hy+8,10,2,cp.c2);if(cp.stars){P(bx+1,hy+11,1,1,cp.c2);P(bx+6,hy+13,1,1,cp.c2);P(bx+3,hy+16,1,1,cp.c2)}if(cp.flame){P(bx,hy+17,2,2,cp.c2);P(bx+5,hy+16,2,3,cp.c2)}if(cp.aur){P(bx-1,hy+12,10,3,cp.c2)}}
   return VOX.outline(c,'#141826');
+ }
+ function sideBody(P,cl,eq,cp,skin,hair,step,bx,hy){
+  // cape flowing behind (left side)
+  if(cp&&eq.cape!=='none'){P(bx,hy+8,2,12,cp.c);P(bx-1,hy+12,1,8,cp.c);P(bx-1,hy+19,3,1,cp.c2)}
+  const lg=cl.pants,bt=cl.boot,a=step?1:-1;
+  // legs: back leg darker, front leg strides
+  P(bx+3-a,hy+16,3,6,VOX.shade(lg,-.25));P(bx+3-a,hy+22,3,2,VOX.shade(bt,-.2));
+  P(bx+3+a,hy+16,3,6,lg);P(bx+3+a,hy+22,4,2,bt);
+  if(cl.robe){P(bx+1,hy+14,7,6,cl.shirt);P(bx+1,hy+19,7,1,cl.sh2)}
+  if(cl.suit){P(bx+2,hy+16,5,6,cl.pants)}
+  // torso (narrower in profile)
+  P(bx+1,hy+8,6,8,cl.shirt);P(bx+1,hy+8,1,8,cl.sh2);P(bx+1,hy+14,6,1,cl.belt);P(bx+6,hy+14,1,1,'#f6c343');
+  if(cl.tabard)P(bx+5,hy+8,2,9,cl.tabard);
+  if(cl.plate)P(bx+2,hy+9,4,1,'rgba(255,255,255,.35)');
+  if(cl.overall)P(bx+3,hy+10,4,6,cl.pants);
+  if(cl.cross)P(bx+5,hy+10,2,2,cl.cross);
+  if(cl.fur)P(bx,hy+8,8,2,cl.fur);
+  if(cl.apron)P(bx+5,hy+10,2,7,cl.apron);
+  if(cl.lava){P(bx+3,hy+9,1,5,cl.lava);P(bx+4,hy+17,1,3,cl.lava)}
+  if(cl.vine)P(bx+2,hy+9,1,6,cl.vine);
+  if(cl.sash)for(let i=0;i<6;i++)P(bx+1+i,hy+14-i,1,1,cl.sash);
+  if(cl.suit)P(bx+2,hy+9,4,1,'#3b6fd8');
+  if(cl.stars){P(bx+3,hy+10,1,1,cl.stars);P(bx+4,hy+17,1,1,cl.stars)}
+  // one arm swinging opposite the front leg
+  const ac=cl.arm||cl.shirt,ax=bx+3-a;P(ax,hy+8,2,6,VOX.shade(ac,-.1));P(ax,hy+14,2,2,cl.plate?cl.sh2:skin);
+  // head in profile: hair at back, face forward, one eye, nose
+  P(bx,hy,8,8,skin);P(bx,hy,8,2,hair);P(bx,hy+2,3,5,hair);P(bx,hy+7,2,1,hair);
+  const ey=cl.eyes||'#1a1a2a';P(bx+5,hy+3,2,1,'#fff');P(bx+6,hy+3,1,2,ey);
+  P(bx+8,hy+4,1,2,skin);P(bx+6,hy+6,2,1,'#b0604a');P(bx+3,hy+4,1,2,VOX.shade(skin,-.15));
+  if(cl.beard){P(bx+4,hy+6,4,2,cl.beard);P(bx+5,hy+8,3,1,cl.beard)}
+  if(cl.mask){P(bx+3,hy+5,6,3,cl.mask);P(bx+3,hy+2,6,1,cl.mask)}
+  if(cl.skinOverride){P(bx+5,hy+3,3,1,cl.eyes)}
  }
  function swordSprite(id,big){const s=SWORDS[id]||SWORDS.wood,c=document.createElement('canvas');c.width=8;c.height=16;const x=c.getContext('2d');const P=(a,b,w,h,col)=>{x.fillStyle=col;x.fillRect(a,b,w,h)};
   P(3,0,2,10,s.b);P(4,0,1,10,s.e);P(3,0,1,1,'rgba(255,255,255,.7)');P(1,10,6,1,s.h);P(1,10,1,1,'#f6c343');P(6,10,1,1,'#f6c343');P(3,11,2,4,s.h);P(3,15,2,1,'#f6c343');return VOX.outline(c)}
@@ -862,12 +896,15 @@ const ISLE=(()=>{
  function tile(x,y){return isl.T[x]&&isl.T[x][y]}
  function canWalk(x,y,fromH){const t=tile(x,y);if(!t||!t.h||!t.walk)return false;if(Math.abs(t.h-fromH)>1)return false;if(mobs.some(m=>m.x===x&&m.y===y))return false;return true}
  function spawnMob(type){for(let k=0;k<200;k++){const x=(Math.random()*isl.N)|0,y=(Math.random()*isl.N)|0;const t=tile(x,y);if(t&&t.h&&t.walk&&Math.abs(x-pl.x)+Math.abs(y-pl.y)>4&&!mobs.some(m=>m.x===x&&m.y===y)){mobs.push({type,x,y,fx:x,fy:y,t:Math.random()*2,dir:1});return}}}
- const DIRS={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+ const DIRS={up:[-1,-1],down:[1,1],left:[-1,1],right:[1,-1],ur:[0,-1],ul:[-1,0],dr:[1,0],dl:[0,1]};
+ const CARD={up:'up',down:'down',left:'left',right:'right'};
+ function dirOf(dx,dy){return Object.keys(DIRS).find(d=>DIRS[d][0]===dx&&DIRS[d][1]===dy)}
+ function diagOK(x,y,dx,dy,h){if(Math.abs(dx)+Math.abs(dy)<2)return true;return canWalk(x+dx,y,h)||canWalk(x,y+dy,h)}
  function tryMove(d){if(BATTLE.open)return;const[dx,dy]=DIRS[d];pl.dir=d;const nx=pl.x+dx,ny=pl.y+dy;const t=tile(nx,ny),cur=tile(pl.x,pl.y);
   // interactions
   const mob=mobs.find(m=>m.x===nx&&m.y===ny);if(mob){fightMob(mob);return}
   if(t&&t.obj){interact(t.obj,t);return}
-  if(canWalk(nx,ny,cur.h)){pl.x=nx;pl.y=ny;pl.fr++;SND.step();if(S.eq.trail!=='none')trail.push({x:pl.fx,y:pl.fy,h:cur.h,life:40})}}
+  if(canWalk(nx,ny,cur.h)&&diagOK(pl.x,pl.y,dx,dy,cur.h)){pl.x=nx;pl.y=ny;pl.fr++;SND.step();if(S.eq.trail!=='none')trail.push({x:pl.fx,y:pl.fy,h:cur.h,life:40})}}
  function act(){const[dx,dy]=DIRS[pl.dir];const t=tile(pl.x+dx,pl.y+dy);const mob=mobs.find(m=>m.x===pl.x+dx&&m.y===pl.y+dy);if(mob)fightMob(mob);else if(t&&t.obj)interact(t.obj,t);else msg('Face a creature, ore, tome, oracle or altar and press ● / Space.')}
  function needHearts(){if(S.hearts<=0){S.hearts=S.maxH;hud();msg('💫 You fainted and woke at the dock with full hearts. No shards lost!',3500);pl.x=isl.spawn.x;pl.y=isl.spawn.y;return true}return false}
  function fightMob(mob){const q=pickQ(L.qs.filter(id=>!QMAP[id].sa));if(!q){msg('No questions here yet.');return}
@@ -897,11 +934,11 @@ const ISLE=(()=>{
   if(ob.type==='tome')return'📖 Tome · read '+L.id+' '+L.short+' notes';if(ob.type==='oracle')return'🗿 Oracle · '+L.qs.filter(id=>QMAP[id].off).length+' official questions';
   const s=lectStats(L.id);return S.boss[L.id]?'⛩ Altar · boss defeated 👑 (rematch for practice)':(s.seen/s.n<.5?'⛩ Boss altar · sealed (see '+(Math.ceil(s.n/2)-s.seen)+' more questions)':'⛩ Boss altar · click to challenge the boss')}
  function useTarget(tg){if(tg.kind==='mob')fightMob(tg.m);else interact(tg.ob,tile(tg.x,tg.y))}
- function goUse(tg){const dx=tg.x-pl.x,dy=tg.y-pl.y;if(Math.abs(dx)+Math.abs(dy)===1){pl.dir=Object.keys(DIRS).find(d=>DIRS[d][0]===dx&&DIRS[d][1]===dy);path=[];useTarget(tg);return}
+ function goUse(tg){const dx=tg.x-pl.x,dy=tg.y-pl.y;if(Math.max(Math.abs(dx),Math.abs(dy))===1){pl.dir=dirOf(dx,dy);path=[];useTarget(tg);return}
   const steps=pathTo(tg.x,tg.y,true);if(!steps){msg('Cannot reach that from here. Try walking closer.');return}path=steps;pend=tg}
  function pathTo(tx,ty,adj){const prev={},q=[[pl.x,pl.y]],key=(x,y)=>x+','+y;prev[key(pl.x,pl.y)]=null;let found=null;
-  while(q.length){const[x,y]=q.shift();if(adj?(Math.abs(x-tx)+Math.abs(y-ty)===1):(x===tx&&y===ty)){found=[x,y];break}
-   for(const d in DIRS){const[dx,dy]=DIRS[d];const nx=x+dx,ny=y+dy;if(prev[key(nx,ny)]!==undefined)continue;if(!canWalk(nx,ny,tile(x,y).h))continue;prev[key(nx,ny)]=[x,y,d];q.push([nx,ny])}}
+  while(q.length){const[x,y]=q.shift();if(adj?(Math.max(Math.abs(x-tx),Math.abs(y-ty))===1):(x===tx&&y===ty)){found=[x,y];break}
+   for(const d in DIRS){const[dx,dy]=DIRS[d];const nx=x+dx,ny=y+dy;if(prev[key(nx,ny)]!==undefined)continue;if(!canWalk(nx,ny,tile(x,y).h)||!diagOK(x,y,dx,dy,tile(x,y).h))continue;prev[key(nx,ny)]=[x,y,d];q.push([nx,ny])}}
   if(!found)return null;const steps=[];let k=key(found[0],found[1]);while(prev[k]){const[px,py,d]=prev[k];steps.unshift(d);k=key(px,py)}return steps}
  // tap to move: BFS
  function tapAt(mx,my){const sc=screenOrigin();let best=null,bd=1e9;for(let x=0;x<isl.N;x++)for(let y=0;y<isl.N;y++){const t=tile(x,y);if(!t.h)continue;const[X,Y]=isoXY(x,y,t.h-1,Z);const cx=X+sc.ox,cy=Y+sc.oy+8*Z;const d=Math.hypot(mx-cx,(my-cy)*2);if(d<bd){bd=d;best={x,y}}}
@@ -916,9 +953,9 @@ const ISLE=(()=>{
  function screenOrigin(){const r=cv.getBoundingClientRect();const t=tile(pl.x,pl.y);const[X,Y]=isoXY(pl.fx,pl.fy,(t?t.h:1)-1,Z);return{ox:r.width/2-X,oy:r.height/2-Y+40}}
  // input
  addEventListener('keydown',e=>{if(!isl||BATTLE.open||$('#modal').classList.contains('on'))return;const k=e.key.toLowerCase();const map={arrowup:'up',w:'up',arrowdown:'down',s:'down',arrowleft:'left',a:'left',arrowright:'right',d:'right'};
-  if(map[k]){e.preventDefault();path=[];pend=null;if(!keys[k]){keys[k]=1;tryMove(map[k]);lastStep=performance.now()}}else if(k===' '||k==='enter'||k==='e'){e.preventDefault();act()}else if(k==='escape')exit()});
+  if(map[k]){e.preventDefault();path=[];pend=null;if(!keys[k]){keys[k]=1;const hd=holdDir();if(hd){tryMove(hd);lastStep=performance.now()}}}else if(k===' '||k==='enter'||k==='e'){e.preventDefault();act()}else if(k==='escape')exit()});
  addEventListener('keyup',e=>{delete keys[e.key.toLowerCase()]});
- function holdDir(){const map={arrowup:'up',w:'up',arrowdown:'down',s:'down',arrowleft:'left',a:'left',arrowright:'right',d:'right'};for(const k in keys)if(map[k])return map[k];return null}
+ function holdDir(){const map={arrowup:'up',w:'up',arrowdown:'down',s:'down',arrowleft:'left',a:'left',arrowright:'right',d:'right'};const on={};for(const k in keys)if(map[k])on[map[k]]=1;const v=(on.up?1:0)-(on.down?1:0),h=(on.right?1:0)-(on.left?1:0);if(v>0&&h>0)return'ur';if(v>0&&h<0)return'ul';if(v<0&&h>0)return'dr';if(v<0&&h<0)return'dl';if(v>0)return'up';if(v<0)return'down';if(h>0)return'right';if(h<0)return'left';return null}
  function bind(){$('#isleBack').onclick=exit;$$('#dpad button').forEach(b=>{let iv=null;const d=b.dataset.d;const go=()=>{d==='act'?act():tryMove(d)};
    b.addEventListener('pointerdown',e=>{e.preventDefault();path=[];go();if(d!=='act')iv=setInterval(go,190)});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>clearInterval(iv)))});
   const cvv=$('#isleCv');cvv.addEventListener('pointerdown',e=>{if(!isl||BATTLE.open)return;const r=e.target.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;const tg=targetAt(mx,my);pend=null;if(tg)goUse(tg);else tapAt(mx,my)});
@@ -928,8 +965,8 @@ const ISLE=(()=>{
   if(cv.width!==Math.round(r.width*dpr)||cv.height!==Math.round(r.height*dpr)){cv.width=r.width*dpr;cv.height=r.height*dpr}
   Z=r.width<700?2:3;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.imageSmoothingEnabled=false;const t=now/1000;
   // movement: held keys / path
-  if(!BATTLE.open){const hd=holdDir();if(hd&&now-lastStep>170){tryMove(hd);lastStep=now}else if(!hd&&path.length&&now-lastStep>150){tryMove(path.shift());lastStep=now;if(!path.length&&pend){const tg=pend;pend=null;const cur=tg.kind==='mob'?(mobs.includes(tg.m)&&{x:tg.m.x,y:tg.m.y}):{x:tg.x,y:tg.y};if(cur){const t2=Object.assign({},tg,cur);setTimeout(()=>goUse(t2),120)}}}}
-  pl.fx+=(pl.x-pl.fx)*.3;pl.fy+=(pl.y-pl.fy)*.3;pet.fx+=(pl.fx-pet.fx-(pl.dir==='right'?1:pl.dir==='left'?-1:0)*.9-pet.fx*0)*.06;pet.fy+=(pl.fy-pet.fy-(pl.dir==='down'?1:pl.dir==='up'?-1:0)*.9)*.06;
+  if(!BATTLE.open){const hd=holdDir();const diag=hd&&Math.abs(DIRS[hd][0])+Math.abs(DIRS[hd][1])===2;if(hd&&now-lastStep>(hd==='up'||hd==='down'?150:diag?200:210)){tryMove(hd);lastStep=now}else if(!hd&&path.length&&now-lastStep>150){tryMove(path.shift());lastStep=now;if(!path.length&&pend){const tg=pend;pend=null;const cur=tg.kind==='mob'?(mobs.includes(tg.m)&&{x:tg.m.x,y:tg.m.y}):{x:tg.x,y:tg.y};if(cur){const t2=Object.assign({},tg,cur);setTimeout(()=>goUse(t2),120)}}}}
+  pl.fx+=(pl.x-pl.fx)*.3;pl.fy+=(pl.y-pl.fy)*.3;{const[pdx,pdy]=DIRS[pl.dir]||[0,1];pet.fx+=(pl.fx-pet.fx-pdx*.9)*.06;pet.fy+=(pl.fy-pet.fy-pdy*.9)*.06}
   // mobs wander
   mobs.forEach(m=>{m.t-=1/60;if(m.t<=0&&!BATTLE.open){m.t=1+Math.random()*1.6;const ds=Object.values(DIRS);const[dx,dy]=ds[(Math.random()*4)|0];const nt=tile(m.x+dx,m.y+dy),ct=tile(m.x,m.y);if(nt&&nt.h&&nt.walk&&Math.abs(nt.h-ct.h)<=1&&!(m.x+dx===pl.x&&m.y+dy===pl.y)&&!mobs.some(o=>o!==m&&o.x===m.x+dx&&o.y===m.y+dy)){m.x+=dx;m.y+=dy;m.dir=dx-dy>0?1:-1}}m.fx+=(m.x-m.fx)*.15;m.fy+=(m.y-m.fy)*.15});
   // sky
@@ -975,11 +1012,11 @@ const ISLE=(()=>{
  let heroCache={k:'',c:{}};
  function heroSprite(dir,fr){const k=JSON.stringify(S.eq);if(heroCache.k!==k){heroCache={k,c:{}}}const kk=dir+(fr%2);return heroCache.c[kk]||(heroCache.c[kk]=HERO.paint(S.eq,dir,fr))}
  function drawPlayer(o,t){const tl=tile(pl.x,pl.y);const h=tl?tl.h:1;const[X,Y]=isoXY(pl.fx,pl.fy,h-1,Z);const sx=X+o.ox,sy=Y+o.oy+8*Z;const moving=Math.abs(pl.x-pl.fx)+Math.abs(pl.y-pl.fy)>.05;
-  const sp=heroSprite(pl.dir==='up'||pl.dir==='left'?'up':'down',moving?Math.floor(t*8):0);const flip=pl.dir==='down'||pl.dir==='left';
+  const vd=pl.dir==='left'||pl.dir==='right'?'side':(pl.dir==='up'||pl.dir==='ur'||pl.dir==='ul'?'up':'down');const sp=heroSprite(vd,moving?Math.floor(t*8):0);const flip=pl.dir==='left'||pl.dir==='ul'||pl.dir==='dl';
   ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(sx,sy,8*Z,4*Z,0,0,7);ctx.fill();
   const cl=HERO.CLASS[S.eq.cls];if(cl&&cl.glow)glow(sx,sy-16*Z,cl.glow+'55',26*Z);if(S.fx.aura)glow(sx,sy-14*Z,'rgba(255,230,120,.35)',30*Z);
   ctx.save();ctx.translate(sx,sy-sp.height*Z+2*Z+(moving?-Math.abs(Math.sin(t*16))*Z:0));if(flip){ctx.scale(-1,1)}ctx.drawImage(sp,-sp.width*Z/2,0,sp.width*Z,sp.height*Z);
-  if(pl.dir==='down'||pl.dir==='right'){const sw=HERO.swordSprite(S.eq.sword);ctx.drawImage(sw,(sp.width/2-1)*Z,(sp.height-22)*Z,sw.width*Z*.8,sw.height*Z*.8)}ctx.restore();
+  if(vd==='down'){const sw=HERO.swordSprite(S.eq.sword);ctx.drawImage(sw,(sp.width/2-1)*Z,(sp.height-22)*Z,sw.width*Z*.8,sw.height*Z*.8)}else if(vd==='side'){const sw=HERO.swordSprite(S.eq.sword);ctx.drawImage(sw,(1)*Z,(sp.height-24)*Z,sw.width*Z*.8,sw.height*Z*.8)}ctx.restore();
   if(S.fx.halo2){ctx.strokeStyle='#ffe48a';ctx.lineWidth=2*Z;ctx.beginPath();ctx.ellipse(sx,sy-sp.height*Z-2*Z,6*Z,2*Z,0,0,7);ctx.stroke()}}
  function drawPet(o,t){const sp=HERO.petSprite(S.eq.pet,Math.floor(t*4));if(!sp)return;const tl=tile(Math.round(pet.fx),Math.round(pet.fy))||tile(pl.x,pl.y);const[X,Y]=isoXY(pet.fx,pet.fy,(tl&&tl.h?tl.h:1)-1,Z);const fly=['owl','dragon','bee'].includes(S.eq.pet);
   ctx.drawImage(sp,X+o.ox-sp.width*Z*.6+10*Z,Y+o.oy+8*Z-sp.height*Z*1.2-(fly?10*Z+Math.sin(t*3)*3*Z:0),sp.width*Z*1.2,sp.height*Z*1.2)}
