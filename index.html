@@ -96,6 +96,38 @@ body.atmenu #desc{display:none}
 .mtile{display:flex;gap:12px;align-items:center;text-align:left;background:#fffaf0;border:3px solid var(--line);border-radius:12px;box-shadow:0 4px 0 var(--line);padding:12px;transition:transform .1s}
 .mtile:hover{transform:translateY(-2px);background:#fff3c9}.mtile .ic{font-size:30px;width:44px;text-align:center}.mtile b{display:block;font-size:15px}.mtile span{font-size:12.5px;color:var(--ink2);font-weight:600}
 .pcard{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.shelfwrap{background:linear-gradient(#6b4226,#5a361f);border:4px solid #2a1a0e;border-radius:12px;padding:14px 14px 0;box-shadow:0 6px 0 #2a1a0e,inset 0 0 40px rgba(0,0,0,.35)}
+.shelfTop{display:flex;gap:12px;align-items:center;flex-wrap:wrap;color:#ffe48a;margin-bottom:10px}.shelfTop .muted{color:#e6d2b0}
+.shelf{display:flex;flex-wrap:wrap;align-items:flex-end;gap:5px;padding:16px 10px 0;background:repeating-linear-gradient(to bottom,transparent 0,transparent 214px,#8a5a35 214px,#8a5a35 228px,#3d2615 228px,#3d2615 234px);min-height:234px}
+.book{position:relative;width:48px;margin-bottom:20px;border:3px solid #120a04;border-radius:4px 4px 2px 2px;background:linear-gradient(90deg,var(--d) 0 12%,var(--c) 12% 78%,var(--d) 78%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.08),2px 0 0 rgba(0,0,0,.35);cursor:pointer;transition:transform .18s ease,box-shadow .18s;display:flex;flex-direction:column;align-items:center;padding:6px 0;color:#fff;overflow:hidden}
+.book::before,.book::after{content:'';position:absolute;left:0;right:0;height:4px;background:var(--a);opacity:.85}.book::before{top:30px}.book::after{bottom:26px}
+.book:hover{transform:translateY(-14px) rotate(-2deg);box-shadow:0 10px 18px rgba(0,0,0,.45);z-index:2}
+.book .bnum{font-family:var(--px);font-size:9px;color:var(--a);margin-bottom:12px;letter-spacing:-.5px}
+.book .btitle{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:900;font-size:13.5px;letter-spacing:.3px;text-shadow:1px 1px 0 #000;flex:1;overflow:hidden;white-space:nowrap}
+.book .bpips{font-size:8px;color:#ffd34d;margin-top:6px;letter-spacing:-1px}
+.book.hit{box-shadow:0 0 0 3px #ffe48a,0 0 18px 4px rgba(255,228,138,.8);transform:translateY(-6px)}.book.dim{opacity:.38}
+.bookTip{position:fixed;z-index:60;display:none;pointer-events:none;background:#fffaf0;border:3px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;max-width:290px;box-shadow:var(--shadow)}
+#bookView{position:fixed;inset:0;z-index:85;background:radial-gradient(circle at 50% 40%,rgba(60,40,20,.75),rgba(10,8,20,.9));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;perspective:1800px;animation:bvIn .25s ease}
+#bookView.closing{animation:bvOut .26s ease forwards}@keyframes bvIn{from{opacity:0}}@keyframes bvOut{to{opacity:0}}
+.bvBook{position:relative;width:min(1040px,94vw);height:min(640px,76vh);display:grid;grid-template-columns:1fr 1fr;padding:14px;transform-style:preserve-3d;animation:pull .55s cubic-bezier(.2,.9,.3,1.1)}
+.bvBook.one{grid-template-columns:1fr;width:min(560px,94vw)}
+@keyframes pull{from{transform:translate(var(--dx),var(--dy)) scale(.12) rotateY(70deg);opacity:.6}to{transform:none;opacity:1}}
+.bvBook .leather{position:absolute;inset:0;background:var(--c);border:4px solid #120a04;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.6),inset 0 0 0 6px var(--d)}
+.bvBook .pg{position:relative;background:linear-gradient(90deg,#efe3c4,#fbf3dd 8%,#fbf3dd 92%,#ead9b3);border:2px solid #b9a27a;padding:22px 26px 34px;overflow-y:auto;font-family:Nunito;color:#2a2116;transform-origin:left center;box-shadow:inset 0 0 30px rgba(120,90,40,.18)}
+.bvBook .pg.l{border-radius:6px 0 0 6px;box-shadow:inset -18px 0 24px -16px rgba(80,50,20,.45)}.bvBook .pg.r{border-radius:0 6px 6px 0;box-shadow:inset 18px 0 24px -16px rgba(80,50,20,.45)}
+.bvBook.one .pg.l{border-radius:6px}
+.pg h3{font-family:Georgia,serif;font-size:20px;margin:0 0 10px;color:#3a2a14;border-bottom:2px solid #d6c08f;padding-bottom:6px}.pg .tb{font-size:15px;line-height:1.6}.pg .tb table{border-collapse:collapse;font-size:13.5px}.pg .tb td,.pg .tb th{border:1px solid #c9b48a;padding:3px 6px}
+.pg .pno{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-family:Georgia,serif;font-size:12px;color:#8a7650}
+.ptitle{text-align:center}.ptitle h2{font-family:Georgia,serif;font-size:26px;margin:6px 0}.pnick{font-style:italic;color:#b5523b;font-weight:800}.plec{color:#5a4a30;font-weight:700}.pstars{color:#e0a000;margin:8px 0 14px;font-size:18px}
+.pcontents{text-align:left;background:rgba(255,255,255,.4);border:2px dashed #c9b48a;border-radius:8px;padding:10px 14px}.pcontents ol{margin:6px 0 0;padding-left:22px}.pcontents a{color:#3b5fa8;font-weight:700;text-decoration:none}.pcontents a:hover{text-decoration:underline}
+.pfoot,.pend{text-align:center;font-size:28px;margin-top:14px;color:#8a7650}.pend{margin-top:40%}
+.bvBook .cover{position:absolute;top:14px;bottom:14px;right:14px;width:calc(50% - 14px);transform-origin:left center;background:linear-gradient(135deg,var(--c),var(--d));border:4px solid #120a04;border-radius:0 10px 10px 0;display:flex;align-items:center;justify-content:center;animation:openCover .9s .3s ease-in forwards;backface-visibility:hidden;box-shadow:inset 0 0 0 6px var(--a)}
+.bvBook.one .cover{width:calc(100% - 28px);border-radius:10px}
+@keyframes openCover{to{transform:rotateY(-178deg);visibility:hidden}}
+.cvIn{text-align:center;color:#fff;padding:20px}.cvNick{font-style:italic;color:var(--a);font-weight:800}.cvT{font-family:var(--px);font-size:clamp(14px,2vw,22px);line-height:1.6;margin:14px 0;color:#ffe48a;text-shadow:3px 3px 0 #120a04}.cvL{font-weight:800;opacity:.85}
+.turnOut{animation:tOut .17s ease-in forwards}.turnOutB{animation:tOutB .17s ease-in forwards}.turnIn{animation:tIn .2s ease-out}
+@keyframes tOut{to{transform:rotateY(-80deg);opacity:.4}}@keyframes tOutB{to{transform:rotateY(80deg);opacity:.4}}@keyframes tIn{from{transform:rotateY(60deg);opacity:.5}}
+.bvNav{display:flex;gap:10px;align-items:center;color:#fff;font-weight:800}
 .expl{margin-top:10px;background:#fff;border:3px dashed #9cb3e6;border-radius:10px;padding:10px 12px;font-size:14.5px;line-height:1.5}
 .expl b.v{font-family:var(--px);font-size:11px}
 .flag{background:#ffecec;border:3px solid #d33;border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13.5px}
@@ -1268,6 +1300,52 @@ const BATTLE=(()=>{
  return{run,get open(){return open}};
 })();
 
+// ===== LIBRARY: Study Notes as a bookshelf; books open into a two-page spread =====
+const NOTESUI=(()=>{
+ const BOOKC={ear:['#3f7a34','#2a5423','#f6a8c8'],nose:['#4a6a90','#30486a','#e8f6ff'],mouth:['#9a6a3a','#6a4524','#ffe0a0'],neck:['#4f6a3a','#344a26','#c8f0a0'],dream:['#4a3a7a','#2e2352','#d8c8ff'],chest:['#3a3e4a','#22252e','#ffb04a']};
+ let book=null,spread=0,q='';
+ const one=()=>innerWidth<760;
+ function matches(L){if(!q)return false;return L.notes.some(n=>(n.h+' '+n.b).toLowerCase().includes(q))||(L.id+' '+L.short+' '+L.t+' '+L.lec).toLowerCase().includes(q)}
+ function render(open){const host=$('#p-notes');
+  host.innerHTML=`<div class="card row"><input type="text" id="nSearch" placeholder="Search all notes (e.g. cholesteatoma, Little's area, flail chest)" style="flex:1;min-width:220px" value="${esc(q)}"><span class="muted" id="nCount"></span></div>
+  <div class="shelfwrap"><div class="shelfTop"><b class="px" style="font-size:12px">📚 THE OTOLITH LIBRARY</b><span class="muted">Hover a book for its full title · click to take it off the shelf</span></div><div class="shelf" id="shelf"></div></div><div id="bookTip" class="bookTip"></div>`;
+  const sh=$('#shelf');let n=0;
+  LECTS.forEach((L,k)=>{const c=BOOKC[L.r]||BOOKC.chest,stars3=stars(L.id),hit=matches(L);if(hit)n++;
+   const b=document.createElement('button');b.className='book'+(hit?' hit':'')+(q&&!hit?' dim':'');b.dataset.id=L.id;
+   b.style.cssText=`--c:${c[0]};--d:${c[1]};--a:${c[2]};height:${168+((k*37)%5)*9}px`;
+   b.innerHTML=`<span class="bnum">${esc(L.id)}</span><span class="btitle">${esc(L.short)}</span><span class="bpips">${'●'.repeat(stars3)}${'○'.repeat(3-stars3)}</span>`;
+   b.onmouseenter=e=>{const tip=$('#bookTip');tip.innerHTML=`<div style="font-style:italic;color:#b5523b;font-weight:800">~ ${esc(L.nick||'')} ~</div><b>${esc(L.id)} ${esc(L.short)}</b><div>${esc(L.lec)}: ${esc(L.t)}</div><div class="muted">${L.notes.length} notes · ${starStr(stars3)}${hit?' · <b style="color:#2f8a5a">matches search</b>':''}</div>`;tip.style.display='block'};
+   b.onmousemove=e=>{const tip=$('#bookTip');tip.style.left=Math.min(innerWidth-300,e.clientX+16)+'px';tip.style.top=(e.clientY+18)+'px'};
+   b.onmouseleave=()=>{$('#bookTip').style.display='none'};
+   b.onclick=()=>{$('#bookTip').style.display='none';let start=0;if(q){const i=L.notes.findIndex(n=>(n.h+' '+n.b).toLowerCase().includes(q));if(i>=0)start=i}openLect(L.id,start,b)};
+   sh.appendChild(b)});
+  $('#nCount').textContent=q?n+' books match':'';
+  $('#nSearch').oninput=e=>{q=e.target.value.toLowerCase().trim();render();const s=$('#nSearch');s.focus();s.setSelectionRange(s.value.length,s.value.length)};
+  if(open)openLect(open)}
+ // pages: page 0 = title/contents, page i>=1 = note i-1
+ function pageHTML(L,p){if(p===0){const c=BOOKC[L.r]||BOOKC.chest;return`<div class="ptitle"><div class="pnick">~ ${esc(L.nick||'')} ~</div><h2>${esc(L.id)} ${esc(L.short)}</h2><div class="plec">${esc(L.lec)}: ${esc(L.t)}</div><div class="pstars">${starStr(stars(L.id))}${S.boss[L.id]?' 👑':''}</div><div class="pcontents"><b>Contents</b><ol>${L.notes.map((n,i)=>`<li><a href="#" data-goto="${i+1}">${esc(n.h)}</a></li>`).join('')}</ol></div><div class="pfoot" style="color:${c[0]}">❦</div></div>`}
+  const n=L.notes[p-1];if(!n)return'<div class="pend">❦<br><i>The end</i></div>';return`<h3>${esc(n.h)}</h3><div class="tb">${abx(n.b)}</div>${n.f?`<div class="flag">⚠ ${n.f}</div>`:''}<div class="cite">📖 ${esc(L.lec)}: ${esc(L.t)}${n.s?' · '+esc(n.s):''}</div>`}
+ function total(L){return L.notes.length+1}
+ function show(dir){const L=LMAP[book],bv=$('#bookView');if(!bv)return;const per=one()?1:2,maxS=Math.ceil(total(L)/per)-1;spread=Math.max(0,Math.min(maxS,spread));
+  const lp=spread*per,left=bv.querySelector('.pg.l'),right=bv.querySelector('.pg.r');
+  const fill=()=>{left.innerHTML=pageHTML(L,lp)+`<div class="pno">${lp+1}</div>`;left.scrollTop=0;if(per===2){right.innerHTML=lp+1<total(L)?pageHTML(L,lp+1)+`<div class="pno">${lp+2}</div>`:pageHTML(L,total(L));right.scrollTop=0}
+   bv.querySelector('.bvInfo').textContent=`${spread+1} / ${maxS+1}`;bv.querySelector('[data-p]').disabled=spread===0;bv.querySelector('[data-n]').disabled=spread===maxS;
+   bv.querySelectorAll('[data-goto]').forEach(a=>a.onclick=e=>{e.preventDefault();spread=Math.floor(+a.dataset.goto/per);SND.swing();show(1)})};
+  if(dir){const pg=dir>0?(per===2?right:left):left;pg.classList.remove('turnIn');pg.classList.add(dir>0?'turnOut':'turnOutB');noise();setTimeout(()=>{fill();pg.classList.remove('turnOut','turnOutB');pg.classList.add('turnIn')},170)}else fill()}
+ function noise(){SND.swing()}
+ function openLect(id,startNote,fromEl){book=id;const L=LMAP[id],c=BOOKC[L.r]||BOOKC.chest;const per=one()?1:2;spread=Math.floor(((startNote||0)+(startNote?1:0))/per);
+  let bv=$('#bookView');if(bv)bv.remove();bv=document.createElement('div');bv.id='bookView';
+  let dx=0,dy=0;if(fromEl){const r=fromEl.getBoundingClientRect();dx=r.left+r.width/2-innerWidth/2;dy=r.top+r.height/2-innerHeight/2}
+  bv.innerHTML=`<div class="bvBook ${one()?'one':''}" style="--c:${c[0]};--d:${c[1]};--a:${c[2]};--dx:${dx}px;--dy:${dy}px"><div class="leather"></div><div class="pg l"></div>${one()?'':'<div class="pg r"></div>'}<div class="cover"><div class="cvIn"><div class="cvNick">~ ${esc(L.nick||'')} ~</div><div class="cvT">${esc(L.id)}<br>${esc(L.short)}</div><div class="cvL">${esc(L.lec)}</div></div></div></div>
+   <div class="bvNav"><button class="btn gray" data-p>◀ Prev</button><span class="bvInfo"></span><button class="btn gray" data-n>Next ▶</button><button class="btn red" data-x>✕ Return to shelf</button></div>`;
+  document.body.appendChild(bv);document.body.style.overflow='hidden';SND.place();setTimeout(()=>SND.swing(),420);
+  bv.querySelector('[data-p]').onclick=()=>{spread--;show(-1)};bv.querySelector('[data-n]').onclick=()=>{spread++;show(1)};bv.querySelector('[data-x]').onclick=close;
+  bv.addEventListener('click',e=>{if(e.target.id==='bookView')close()});show(0)}
+ function close(){const bv=$('#bookView');if(!bv)return;bv.classList.add('closing');setTimeout(()=>{bv.remove();document.body.style.overflow=$('#isle').classList.contains('on')?'hidden':''},260);book=null}
+ addEventListener('keydown',e=>{if(!$('#bookView'))return;if(e.key==='ArrowRight'){e.preventDefault();e.stopImmediatePropagation();$('#bookView [data-n]').click()}else if(e.key==='ArrowLeft'){e.preventDefault();e.stopImmediatePropagation();$('#bookView [data-p]').click()}else if(e.key==='Escape'){e.stopImmediatePropagation();close()}},true);
+ return{render,openLect,close};
+})();
+
 // ===== UI: tabs, official Qs, notes, practice, home builder, shop, medals, board, saves =====
 const TABS=[
  ['menu','Main Menu','Home base: start learning or open anything.'],
@@ -1293,13 +1371,6 @@ const OFFUI={render(){const host=$('#p-off');const lects=LECTS.filter(L=>L.qs.so
  host.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>{const L=LMAP[b.dataset.run];BATTLE.run({kind:'oracle',lect:L,qids:L.qs.filter(id=>QMAP[id].off),onEnd:()=>OFFUI.render()})});
  const all=$('#offAll');if(all)all.onclick=()=>{const ids=Q.filter(q=>q.off).map(q=>q.id).sort((a,b)=>((S.qs[a]&&S.qs[a].l)?1:0)-((S.qs[b]&&S.qs[b].l)?1:0));if(!ids.length)return;BATTLE.run({kind:'oracle',lect:LMAP[QMAP[ids[0]].m],qids:ids,onEnd:()=>OFFUI.render()})}}};
 // ---------- Study Notes ----------
-const NOTESUI={render(open){const host=$('#p-notes');host.innerHTML=`<div class="card row"><input type="text" id="nSearch" placeholder="Search notes (e.g. cholesteatoma, Little's area, flail chest)" style="flex:1;min-width:220px"><span class="muted" id="nCount"></span></div><div id="nList"></div>`;
-  const draw=()=>{const q=($('#nSearch').value||'').toLowerCase().trim();let n=0;
-   $('#nList').innerHTML=[0].map(()=>{const ls=LECTS;const body=ls.map(L=>{const notes=L.notes.filter(x=>!q||(x.h+' '+x.b).toLowerCase().includes(q));if(q&&!notes.length)return'';n+=notes.length;
-     return`<details class="nlec" ${open===L.id||q?'open':''} id="nl-${L.id.replace(/\./g,'_')}"><summary>${esc(L.id)} ${esc(L.short)} <span class="muted">(${esc(L.lec)}: ${esc(L.t)}) · ${L.notes.length} notes</span></summary><div class="nbody">${notes.length?notes.map(x=>`<div class="tome"><h4>${esc(x.h)}</h4><div class="tb">${abx(x.b)}</div>${x.f?`<div class="flag">⚠ ${x.f}</div>`:''}<div class="cite">📖 ${esc(L.lec)}: ${esc(L.t)}${x.s?' · '+esc(x.s):''}</div></div>`).join(''):'<div class="muted">Notes coming soon.</div>'}</div></details>`}).join('');
-    return body}).join('');$('#nCount').textContent=q?n+' matching notes':''};
-  $('#nSearch').oninput=draw;draw();if(open){const el=$('#nl-'+open.replace(/\./g,'_'));el&&setTimeout(()=>el.scrollIntoView({behavior:'smooth'}),50)}},
- openLect(id){const L=LMAP[id];modal(`<div class="row" style="justify-content:space-between"><b class="px" style="font-size:11px">📖 TOME</b><button class="btn gray" onclick="closeModal()">Close</button></div><h3 style="margin:8px 0 2px">${esc(L.id)} ${esc(L.short)}</h3><div class="muted">(${esc(L.lec)}: ${esc(L.t)})</div>${L.notes.map(x=>`<div class="tome"><h4>${esc(x.h)}</h4><div class="tb">${abx(x.b)}</div>${x.f?`<div class="flag">⚠ ${x.f}</div>`:''}<div class="cite">${esc(x.s||'')}</div></div>`).join('')||'<p>Notes coming soon.</p>'}`)}};
 // ---------- Practice Quiz ----------
 const QUIZUI=(()=>{let sel=new Set(),mode='smart',n=20,offOnly=false,ly=false,run=null;
  function render(){const host=$('#p-quiz');if(run){draw();return}
