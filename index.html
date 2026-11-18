@@ -2189,6 +2189,7 @@ const CLOUD=(()=>{
      closeModal();toast('Signed in as '+u);await onIn(r.data.user)}catch(e){err(e.message||String(e));$('#aGo').disabled=false}}};draw()}
  return{init,flush,renderBoard,get uid(){return C.uid}};
 })();
+window.CLOUD=CLOUD;
 
 boot();
 </script>
