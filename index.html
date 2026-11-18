@@ -94,7 +94,7 @@ body.atmenu #desc{display:none}
 .bigplay:hover{filter:brightness(1.08)}@keyframes pplay{50%{box-shadow:0 6px 0 var(--line),0 0 0 8px rgba(123,224,143,.35)}}
 .mmGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
 .mtile{display:flex;gap:12px;align-items:center;text-align:left;background:#fffaf0;border:3px solid var(--line);border-radius:12px;box-shadow:0 4px 0 var(--line);padding:12px;transition:transform .1s}
-.mtile:hover{transform:translateY(-2px);background:#fff3c9}.mtile .ic{font-size:30px;width:44px;text-align:center}.mtile b{display:block;font-size:15px}.mtile span{font-size:12.5px;color:var(--ink2);font-weight:600}
+.mtile:hover{transform:translateY(-2px);background:#fff3c9}.mtile .ic{width:48px;height:48px;flex:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle,#fff7d6,#f3e3b8);border:3px solid var(--line);border-radius:10px;box-shadow:inset 0 -4px 0 rgba(0,0,0,.12)}.mtile:hover .ic{background:radial-gradient(circle,#fffbe8,#ffe48a)}.mtile b{display:block;font-size:15px}.mtile span{font-size:12.5px;color:var(--ink2);font-weight:600}
 .pcard{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .libRoom{position:relative;overflow:hidden;border:4px solid #120a04;border-radius:14px;box-shadow:0 6px 0 #120a04;padding:16px 90px 0;
  background:linear-gradient(rgba(10,10,20,.35),rgba(10,8,14,.55)),repeating-linear-gradient(0deg,#2b2e3a 0 30px,#1d1f28 30px 33px),#2b2e3a;
@@ -1468,6 +1468,7 @@ g..ggggg...g
 
 // ===== LIBRARY: Study Notes as a bookshelf; books open into a two-page spread =====
 const NOTESUI=(()=>{
+ const SPINE={'4.01':'Laryngeal Ca','4.04':'Adult Neck Mass','4.05':'Larynx Path','4.10':'Peds Otitis','4.14':'Peds ENT','4.16':'Oral Cancer','4.19.1':'Oronaso I','4.19.2':'Oronaso II','4.20':'Orbital Cellulitis','4.21.1':'ATLS Survey','4.21.3':'Potential Threats','4.02':'Tonsils/Pharynx'};
  const BOOKC={ear:['#3f7a34','#2a5423','#f6a8c8'],nose:['#4a6a90','#30486a','#e8f6ff'],mouth:['#9a6a3a','#6a4524','#ffe0a0'],neck:['#4f6a3a','#344a26','#c8f0a0'],dream:['#4a3a7a','#2e2352','#d8c8ff'],chest:['#3a3e4a','#22252e','#ffb04a']};
  let book=null,spread=0,q='';
  const one=()=>innerWidth<760;
@@ -1491,7 +1492,7 @@ const NOTESUI=(()=>{
   LECTS.forEach((L,k)=>{const c=BOOKC[L.r]||BOOKC.chest,stars3=stars(L.id),hit=matches(L);if(hit)n++;
    const b=document.createElement('button');b.className='book'+(hit?' hit':'')+(q&&!hit?' dim':'');b.dataset.id=L.id;
    b.style.cssText=`--c:${c[0]};--d:${c[1]};--a:${c[2]};height:${170+((k*37)%5)*9}px;width:${44+((k*53)%3)*4}px`;
-   b.innerHTML=`<span class="ptop"></span><span class="bnum">${esc(L.id)}</span><span class="btitle">${esc(L.short)}</span><span class="bpips">${'●'.repeat(stars3)}${'○'.repeat(3-stars3)}</span>`;
+   const sp=SPINE[L.id]||L.short,bh=170+((k*37)%5)*9,avail=bh-74,fs=Math.max(9,Math.min(13,Math.floor(avail/(sp.length*.66))));b.innerHTML=`<span class="ptop"></span><span class="bnum" style="font-size:${L.id.length>4?6:8}px">${esc(L.id)}</span><span class="btitle" style="font-size:${fs}px">${esc(sp)}</span><span class="bpips">${'●'.repeat(stars3)}${'○'.repeat(3-stars3)}</span>`;
    b.onmouseenter=e=>{const tip=$('#bookTip');tip.innerHTML=`<div style="font-style:italic;color:#b5523b;font-weight:800">~ ${esc(L.nick||'')} ~</div><b>${esc(L.id)} ${esc(L.short)}</b><div>${esc(L.lec)}: ${esc(L.t)}</div><div class="muted">${L.notes.length} notes · ${starStr(stars3)}${hit?' · <b style="color:#2f8a5a">matches search</b>':''}</div>`;tip.style.display='block'};
    b.onmousemove=e=>{const tip=$('#bookTip');tip.style.left=Math.min(innerWidth-300,e.clientX+16)+'px';tip.style.top=(e.clientY+18)+'px'};
    b.onmouseleave=()=>{$('#bookTip').style.display='none'};
@@ -1531,6 +1532,173 @@ const NOTESUI=(()=>{
  function close(){const bv=$('#bookView');if(!bv)return;bv.classList.add('closing');setTimeout(()=>{bv.remove();document.body.style.overflow=$('#isle').classList.contains('on')?'hidden':''},260);book=null}
  addEventListener('keydown',e=>{if(!$('#bookView'))return;if(e.key==='ArrowRight'){e.preventDefault();e.stopImmediatePropagation();$('#bookView [data-n]').click()}else if(e.key==='ArrowLeft'){e.preventDefault();e.stopImmediatePropagation();$('#bookView [data-p]').click()}else if(e.key==='Escape'){e.stopImmediatePropagation();close()}},true);
  return{render,openLect,close};
+})();
+
+// ===== Pixel-art menu icons (voxel style) =====
+const ICONS=(()=>{
+ const D={
+  oracle:[`
+...yyyyyy...
+..yyyyyyyy..
+..ykkyykky..
+..yyyyyyyy..
+..yyyokyyy..
+..yyyyyyyy..
+...ykkkky...
+...yyyyyy...
+..qqqqqqqq..
+..qqqqqqqq..
+.gggggggggg.
+.gggggggggg.`,{y:'#f6c343',k:'#7a4a10',o:'#c48a20',q:'#f2ede4',g:'#e3ac2a'}],
+  book:[`
+............
+.bbbbb.bbbbb
+bwwwwwbwwwwb
+bwkkwwbwkkwb
+bwwwwwbwwwwb
+bwkkkwbwkkkb
+bwwwwwbwwwwb
+bwkkwwbwkkwb
+bwwwwwbwwwwb
+.bbbbbrbbbbb
+.....rrr....
+............`,{b:'#3b6fd8',w:'#fffaf0',k:'#9aa3ad',r:'#b5523b'}],
+  target:[`
+...rrrrrr...
+..rwwwwwwr..
+.rwwrrrrwwr.
+rwwrwwwwrwwr
+rwrwwrrwwrwr
+rwrwrkkrwrwr
+rwrwrkkrwrwr
+rwrwwrrwwrwr
+rwwrwwwwrwwr
+.rwwrrrrwwr.
+..rwwwwwwr..
+...rrrrrr...`,{r:'#e5484d',w:'#fffaf0',k:'#14213d'}],
+  island:[`
+.....tt.....
+....tttt....
+....tttt....
+.....ll.....
+gggggggggggg
+gggggggggggg
+dddddddddddd
+.dddddddddd.
+..ssssssss..
+...ssssss...
+....ssss....
+.....ss.....`,{t:'#3f9a3a',l:'#6b4a2b',g:'#5fbf4a',d:'#8a5a35',s:'#8d939c'}],
+  chest:[`
+............
+.kkkkkkkkkk.
+kbbbbbbbbbbk
+kbbbbbbbbbbk
+kyyyyyyyyyyk
+kbbbbyybbbbk
+kbbbbyybbbbk
+kbbbbbbbbbbk
+kbbbbbbbbbbk
+kyyyyyyyyyyk
+.kkkkkkkkkk.
+............`,{k:'#3d2615',b:'#a0643a',y:'#f6c343'}],
+  medal:[`
+..rr....bb..
+...rr..bb...
+....rrbb....
+.....rb.....
+....yyyy....
+...yyyyyy...
+..yyywwyyy..
+..yyywyyyy..
+..yyyyyyyy..
+...yyyyyy...
+....yyyy....
+............`,{r:'#e5484d',b:'#3b6fd8',y:'#f6c343',w:'#fff7c2'}],
+  trophy:[`
+.yyyyyyyyyy.
+yy.yyyyyy.yy
+y..yywyyy..y
+y..yyyyyy..y
+.y.yyyyyy.y.
+...yyyyyy...
+....yyyy....
+.....yy.....
+.....yy.....
+....oooo....
+...oooooo...
+..oooooooo..`,{y:'#f6c343',w:'#fff7c2',o:'#8a5a35'}],
+  crystal:[`
+.....cc.....
+....cwcc....
+...cwccdc...
+...cwccdc...
+..cwcccddc..
+..cwcccddc..
+..ccccdddc..
+...cccddc...
+...cccddc...
+....ccdc....
+.....cc.....
+............`,{c:'#3ee0d0',w:'#c8fff8',d:'#1f8a84'}],
+  head:[`
+...hhhhhh...
+..hhhhhhhh..
+..hssssssh..
+..ssssssss..
+..skkssksk..
+..ssssssss..
+..sssmmsss..
+...ssssss...
+..bbbbbbbb..
+.bbbbbbbbbb.
+.bbbbbbbbbb.
+.bbbbbbbbbb.`,{h:'#5a3a22',s:'#f2c9a0',k:'#1a1a2a',m:'#b0604a',b:'#3fa9c9'}],
+  speaker:[`
+.......k....
+......kk..w.
+.....kgk.w..
+kkkkkggk..w.
+kggggggk.w..
+kggggggk..w.
+kggggggk.w..
+kkkkkggk..w.
+.....kgk.w..
+......kk..w.
+.......k....
+............`,{k:'#14213d',g:'#9aa3ad',w:'#7cc7ff'}],
+  mute:[`
+.......k....
+......kk....
+.....kgk.r.r
+kkkkkggk..r.
+kggggggk.r.r
+kggggggk....
+kggggggk....
+kkkkkggk....
+.....kgk....
+......kk....
+.......k....
+............`,{k:'#14213d',g:'#9aa3ad',r:'#e5484d'}],
+  qblock:[`
+yyyyyyyyyyyy
+yoooooooooky
+yokwwwwwkoky
+yowwkkkwwoky
+yoooookwwoky
+yooookwwooky
+yooookwwooky
+yoooooooooky
+yooookwwooky
+yooookwwooky
+ykkkkkkkkkky
+yyyyyyyyyyyy`,{y:'#ffe48a',o:'#f2a83a',k:'#a05a10',w:'#fffaf0'}],
+ };
+ const C={};
+ function canvas(id,size){const k=id+size;if(C[k])return C[k].cloneNode?copy(C[k]):C[k];const [m,p]=D[id];const c=VOX.outline(VOX.pix(m,p,1),'#14213d');const o=document.createElement('canvas');o.width=size;o.height=size;const x=o.getContext('2d');x.imageSmoothingEnabled=false;const s=Math.floor(size/c.width);x.drawImage(c,(size-c.width*s)/2,(size-c.height*s)/2,c.width*s,c.height*s);C[k]=o;return copy(o)}
+ function copy(src){const o=document.createElement('canvas');o.width=src.width;o.height=src.height;o.getContext('2d').drawImage(src,0,0);return o}
+ function fill(root){root.querySelectorAll('[data-ico]').forEach(el=>{el.textContent='';const c=canvas(el.dataset.ico,+(el.dataset.sz||42));c.style.imageRendering='pixelated';el.appendChild(c)})}
+ return{canvas,fill};
 })();
 
 // ===== UI: tabs, official Qs, notes, practice, home builder, shop, medals, board, saves =====
@@ -1669,9 +1837,9 @@ const SHOP=(()=>{let cat='cls';
  return{render,CATS};})();
 // ---------- MAIN MENU ----------
 const MENU=(()=>{let raf=0,cv,ctx,th=null,thId='';
- const TILES=[['off','🗿','Official Questions','The professors\' own questions. Top priority.'],['notes','📖','Study Notes','Slide-by-slide notes for every lecture.'],['quiz','🎯','Practice Quiz','Custom quizzes: unseen, missed, or all.'],
-  ['home','🏝','Home Island','Build with the blocks you earn.'],['shop','🛒','Shop','Classes, pets, swords, sounds, skies + crates.'],['medals','🏅','Medals','Milestones that pay out emeralds.'],
-  ['board','🏆','Leaderboard','Friendly class rankings + hero showcase.'],['save','💾','Progress & Saves','Mastery by lecture + backup codes.']];
+ const TILES=[['off','oracle','Official Questions','The professors\' own questions. Top priority.'],['notes','book','Study Notes','Slide-by-slide notes for every lecture.'],['quiz','target','Practice Quiz','Custom quizzes: unseen, missed, or all.'],
+  ['home','island','Home Island','Build with the blocks you earn.'],['shop','chest','Shop','Classes, pets, swords, sounds, skies + crates.'],['medals','medal','Medals','Milestones that pay out emeralds.'],
+  ['board','trophy','Leaderboard','Friendly class rankings + hero showcase.'],['save','crystal','Progress & Saves','Mastery by lecture + backup codes.']];
  function nextL(){return LECTS.find(L=>L.qs.length&&stars(L.id)<3)||LECTS[0]}
  function render(){const host=$('#p-menu');const N=nextL(),lv=lvFromXp(S.xp),mastered=libCount();
   host.innerHTML=`<div class="mm"><canvas id="mmScene"></canvas><div class="mmTitle"><div class="t">OTOLITH ISLES</div><div class="s">OST535 Session 4 · ENT · Sleep · Chest Trauma</div></div></div>
@@ -1679,10 +1847,11 @@ const MENU=(()=>{let raf=0,cv,ctx,th=null,thId='';
   <div class="card pcard"><div id="mmPortrait"></div><div style="flex:1;min-width:220px"><div class="px" style="font-size:12px">${window.CLOUD&&CLOUD.uid?'👤 '+esc(($('#btnAcct').textContent||'').replace('👤 ','')):'Playing offline'}</div>
    <div style="margin:6px 0">Level <b>${lv.lv}</b> <div class="bar" style="display:inline-block;width:180px;vertical-align:middle;margin-left:6px"><i style="width:${Math.round(lv.cur/lv.need*100)}%"></i></div> <span class="muted">${lv.cur}/${lv.need} XP</span></div>
    <div class="row" style="gap:16px"><span>${'<i class="gem"></i>'} <b>${S.sh}</b> emeralds</span><span>🔥 <b>${S.streak.n}</b>-day streak</span><span>🎁 <b>${S.crates}</b> crates</span><span>⭐ <b>${mastered}</b>/${LECTS.length} islands mastered</span><span>👑 <b>${Object.keys(S.boss).length}</b> bosses</span></div></div></div>
-  <div class="mmGrid">${TILES.map(([id,ic,n,d])=>`<button class="mtile" data-go="${id}"><span class="ic">${ic}</span><div><b>${n}</b><span>${d}</span></div></button>`).join('')}
-   <button class="mtile" id="mmAcct"><span class="ic">👤</span><div><b>Account</b><span>Sign in so progress saves to the cloud.</span></div></button>
-   <button class="mtile" id="mmSnd"><span class="ic">${SND.muted?'🔇':'🔊'}</span><div><b>Sound ${SND.muted?'off':'on'}</b><span>Toggle game sounds and music cues.</span></div></button>
-   <button class="mtile" id="mmTut"><span class="ic">❔</span><div><b>How to Play</b><span>Controls and what everything does.</span></div></button></div>`;
+  <div class="mmGrid">${TILES.map(([id,ic,n,d])=>`<button class="mtile" data-go="${id}"><span class="ic" data-ico="${ic}"></span><div><b>${n}</b><span>${d}</span></div></button>`).join('')}
+   <button class="mtile" id="mmAcct"><span class="ic" data-ico="head"></span><div><b>Account</b><span>Sign in so progress saves to the cloud.</span></div></button>
+   <button class="mtile" id="mmSnd"><span class="ic" data-ico="${SND.muted?'mute':'speaker'}"></span><div><b>Sound ${SND.muted?'off':'on'}</b><span>Toggle game sounds and music cues.</span></div></button>
+   <button class="mtile" id="mmTut"><span class="ic" data-ico="qblock"></span><div><b>How to Play</b><span>Controls and what everything does.</span></div></button></div>`;
+  ICONS.fill(host);
   $('#mmStart').onclick=()=>{SND.ok(1);tab('map')};$('#mmCont').onclick=()=>ISLE.enter(N.id);
   host.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>tab(b.dataset.go));
   $('#mmAcct').onclick=()=>$('#btnAcct').click();$('#mmSnd').onclick=()=>{SND.muted=!SND.muted;$('#btnMute').textContent=SND.muted?'🔇':'🔊';render()};
