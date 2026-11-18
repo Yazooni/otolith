@@ -918,7 +918,7 @@ const MAP=(()=>{
  function scr(p){const r=cv.getBoundingClientRect();return[(p.x-cam.x)*cam.z+r.width/2,(p.y-cam.y)*cam.z+r.height/2]}
  function hit(e){const r=cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;let best=null,bd=1e9;LECTS.forEach(L=>{const[sx,sy]=scr(pos[L.id]);const d=Math.hypot(mx-sx,my-sy);if(d<190*cam.z+16&&d<bd){bd=d;best=L.id}});return best}
  function showTip(e){const tip=$('#mapTip');if(!hover){tip.style.display='none';cv.style.cursor='grab';return}cv.style.cursor='pointer';const L=LMAP[hover],s=lectStats(hover);const r=cv.getBoundingClientRect();
-  tip.innerHTML=`<div class="muted" style="font-weight:800">Stop #${LECTS.indexOf(L)+1} · ${esc((REGIONS.find(r=>r.id===L.r)||{}).n||'')}</div><b>${esc(L.id)} ${esc(L.short)}</b><div class="muted">(${esc(L.lec)}: ${esc(L.t)})</div><div class="stars">${starStr(stars(hover))}</div><div>${s.cor}/${s.n} questions correct · ${s.seen} seen</div>${S.boss[hover]?'<div>👑 Boss defeated</div>':''}<div class="muted">Click to land</div>`;
+  tip.innerHTML=`<div class="muted" style="font-weight:800">Stop #${LECTS.indexOf(L)+1} · ${esc((REGIONS.find(r=>r.id===L.r)||{}).n||'')}</div><div style="font-style:italic;color:#b5523b;font-weight:800">~ ${esc(L.nick||'')} ~</div><b>${esc(L.id)} ${esc(L.short)}</b><div class="muted">(${esc(L.lec)}: ${esc(L.t)})</div><div class="stars">${starStr(stars(hover))}</div><div>${s.cor}/${s.n} questions correct · ${s.seen} seen</div>${S.boss[hover]?'<div>👑 Boss defeated</div>':''}<div class="muted">Click to land</div>`;
   tip.style.display='block';tip.style.left=Math.min(r.width-290,e.clientX-r.left+16)+'px';tip.style.top=(e.clientY-r.top+16)+'px'}
  function loop(){if(!cv.isConnected)return;requestAnimationFrame(loop);if(!$('#p-map').classList.contains('on'))return;
   const r=cv.getBoundingClientRect(),dpr=devicePixelRatio||1;if(!r.width)return;if(cv.width!==Math.round(r.width*dpr)){cv.width=r.width*dpr;cv.height=r.height*dpr}
@@ -945,14 +945,23 @@ const MAP=(()=>{
   ctx.strokeStyle=gold?'#e3ac2a':'#8a5a35';ctx.lineWidth=Math.max(2,11*cam.z);ctx.setLineDash([14*cam.z,9*cam.z]);ctx.lineDashOffset=gold?-t*30*cam.z:0;ctx.beginPath();ctx.moveTo(a[0],a[1]+y);ctx.lineTo(b[0],b[1]+y);ctx.stroke();ctx.setLineDash([]);ctx.lineCap='butt'}
  function waystone(n,x,y,st){const r=Math.max(9,34*cam.z);ctx.fillStyle=st===3?'#f6c343':st?'#7cc7ff':'#fffaf0';ctx.strokeStyle='#14213d';ctx.lineWidth=Math.max(2,4*cam.z);ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.stroke();ctx.fillStyle='#14213d';ctx.font=`${Math.max(8,Math.round(22*cam.z))}px "Press Start 2P"`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n,x,y+1);ctx.textAlign='left';ctx.textBaseline='alphabetic'}
  function banner(t,x,y,col){ctx.font=`${Math.max(9,Math.round(22*cam.z))}px "Press Start 2P"`;const w=ctx.measureText(t).width+24;ctx.fillStyle=col||'#1d2440';ctx.fillRect(x-w/2,y-18*Math.max(.5,cam.z),w,36*Math.max(.5,cam.z));ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,x,y);ctx.textAlign='left'}
- function label(L,x,y){const full=cam.z>.42;const big=Math.max(11,Math.round(26*cam.z)),sm=Math.max(10,Math.round(17*cam.z));ctx.textAlign='center';ctx.textBaseline='top';
-  const t1=L.id+' '+L.short,t2='('+L.lec+': '+L.t+')',st=starStr(stars(L.id))+(S.boss[L.id]?' 👑':'');
-  ctx.font=`900 ${big}px Nunito`;let w=ctx.measureText(t1).width;if(full){ctx.font=`700 ${sm}px Nunito`;w=Math.max(w,ctx.measureText(t2).width)}w+=14;
-  const h=big+sm+12+(full?sm+2:0);ctx.fillStyle='rgba(255,250,240,.94)';ctx.strokeStyle='#2a2f45';ctx.lineWidth=2;ctx.fillRect(x-w/2,y,w,h);ctx.strokeRect(x-w/2,y,w,h);
-  ctx.fillStyle='#14213d';ctx.font=`900 ${big}px Nunito`;ctx.fillText(t1,x,y+3);let yy=y+big+5;
-  if(full){ctx.fillStyle='#3a4a6b';ctx.font=`700 ${sm}px Nunito`;ctx.fillText(t2,x,yy);yy+=sm+2}
-  ctx.fillStyle='#e0a000';ctx.font=`${sm+1}px Nunito`;ctx.fillText(st,x,yy);ctx.textAlign='left'}
- function list(){const el=$('#mapList');if(!el)return;const nx=nextId();el.innerHTML=`<b>Lecture order</b> <span class="muted">· follow the trail 4.01 → 4.21.4 · biome = topic region</span><div class="grid" style="margin-top:8px">${LECTS.map((L,k)=>{const s=lectStats(L.id),R=REGIONS.find(r=>r.id===L.r);return`<button class="item" style="text-align:left;${L.id===nx?'outline:4px solid #ffd34d':''}" onclick="ISLE.enter('${L.id}')"><div class="muted" style="font-weight:800">#${k+1} · <span style="color:${R.col}">${esc(R.n)}</span>${L.id===nx?' · ▶ NEXT':''}</div><div class="nm">${esc(L.id)} ${esc(L.short)}</div><div class="ds">(${esc(L.lec)}: ${esc(L.t)})</div><div class="stars">${starStr(stars(L.id))}${S.boss[L.id]?' 👑':''}</div><div class="bar"><i style="width:${Math.round(s.pct*100)}%"></i></div><div class="muted">${s.cor}/${s.n} correct</div></button>`}).join('')}</div>`}
+const PLAQUE={ear:{bg:'#4f8f3a',dk:'#2f5f24',hi:'#7cc35e',acc:'#f6a8c8',rv:'#f6a8c8'},nose:{bg:'#6f8fae',dk:'#465f7a',hi:'#c9e3ff',acc:'#e8f6ff',rv:'#ffffff'},
+ mouth:{bg:'#b98a52',dk:'#7a5530',hi:'#e6c98a',acc:'#ffe0a0',rv:'#f6c343'},neck:{bg:'#5f7f4a',dk:'#3a4f2c',hi:'#8fb06a',acc:'#c8f0a0',rv:'#9aa0a8'},
+ dream:{bg:'#5a4a8a',dk:'#34285a',hi:'#8a7ad8',acc:'#d8c8ff',rv:'#c08aff'},chest:{bg:'#4a4e5a',dk:'#24262e',hi:'#7a7f8c',acc:'#ffb04a',rv:'#c7cdd5'}};
+ function plaque(x,y,w,h,P){const b=Math.max(2,Math.round(4*Math.max(.5,cam.z)));ctx.fillStyle='#14213d';ctx.fillRect(x-b,y-b,w+2*b,h+2*b);ctx.fillStyle=P.bg;ctx.fillRect(x,y,w,h);
+  ctx.fillStyle=P.hi;ctx.fillRect(x,y,w,b);ctx.fillRect(x,y,b,h);ctx.fillStyle=P.dk;ctx.fillRect(x,y+h-b,w,b);ctx.fillRect(x+w-b,y,b,h);
+  ctx.fillStyle='rgba(0,0,0,.12)';for(let i=0;i<w;i+=b*3)for(let j=b;j<h-b;j+=b*3)if(((i*7+j*13)>>2)%3===0)ctx.fillRect(x+i,y+j,b,b);
+  ctx.fillStyle=P.rv;[[x+b,y+b],[x+w-2*b,y+b],[x+b,y+h-2*b],[x+w-2*b,y+h-2*b]].forEach(([a,c])=>ctx.fillRect(a,c,b,b))}
+ function label(L,x,y){const full=cam.z>.42,P=PLAQUE[L.r]||PLAQUE.chest;const big=Math.max(11,Math.round(26*cam.z)),sm=Math.max(10,Math.round(17*cam.z)),nk=Math.max(9,Math.round(15*cam.z));ctx.textAlign='center';ctx.textBaseline='top';
+  const t1=L.id+' '+L.short,t2='('+L.lec+': '+L.t+')',st=starStr(stars(L.id))+(S.boss[L.id]?' 👑':'');const showNick=cam.z>.17&&L.nick;
+  ctx.font=`900 ${big}px Nunito`;let w=ctx.measureText(t1).width;if(full){ctx.font=`700 ${sm}px Nunito`;w=Math.max(w,ctx.measureText(t2).width)}if(showNick){ctx.font=`italic 800 ${nk}px Nunito`;w=Math.max(w,ctx.measureText('~ '+L.nick+' ~').width)}w+=22;
+  const pad=Math.max(4,6*cam.z),h=(showNick?nk+3:0)+big+sm+pad*2+6+(full?sm+2:0);plaque(x-w/2,y,w,h,P);let yy=y+pad+2;
+  const sh=(t,c,dy)=>{ctx.fillStyle='rgba(10,12,30,.65)';ctx.fillText(t,x+1.5,yy+1.5);ctx.fillStyle=c;ctx.fillText(t,x,yy);yy+=dy};
+  if(showNick){ctx.font=`italic 800 ${nk}px Nunito`;sh('~ '+L.nick+' ~',P.acc,nk+3)}
+  ctx.font=`900 ${big}px Nunito`;sh(t1,'#ffffff',big+3);
+  if(full){ctx.font=`700 ${sm}px Nunito`;sh(t2,'rgba(255,255,255,.85)',sm+2)}
+  ctx.font=`${sm+1}px Nunito`;sh(st,'#ffd34d',0);ctx.textAlign='left';ctx.textBaseline='alphabetic'}
+ function list(){const el=$('#mapList');if(!el)return;const nx=nextId();el.innerHTML=`<b>Lecture order</b> <span class="muted">· follow the trail 4.01 → 4.21.4 · biome = topic region</span><div class="grid" style="margin-top:8px">${LECTS.map((L,k)=>{const s=lectStats(L.id),R=REGIONS.find(r=>r.id===L.r);return`<button class="item" style="text-align:left;${L.id===nx?'outline:4px solid #ffd34d':''}" onclick="ISLE.enter('${L.id}')"><div class="muted" style="font-weight:800">#${k+1} · <span style="color:${R.col}">${esc(R.n)}</span>${L.id===nx?' · ▶ NEXT':''}</div><div class="nm">${esc(L.id)} ${esc(L.short)}</div><div class="ds"><i style="color:#b5523b">~ ${esc(L.nick||'')} ~</i><br>(${esc(L.lec)}: ${esc(L.t)})</div><div class="stars">${starStr(stars(L.id))}${S.boss[L.id]?' 👑':''}</div><div class="bar"><i style="width:${Math.round(s.pct*100)}%"></i></div><div class="muted">${s.cor}/${s.n} correct</div></button>`}).join('')}</div>`}
  return{init,list};
 })();
 // ---------- ISLAND (walkable) ----------
@@ -964,7 +973,7 @@ const ISLE=(()=>{
   cv=$('#isleCv');ctx=cv.getContext('2d');$('#isle').classList.add('on');document.body.style.overflow='hidden';info();hov=null;pend=null;if(!S.tut){tutorial()}else msg('Hover anything that glows and click it. 📖 Tome = notes · 🗿 Oracle = official Qs · ⛩ Altar = boss',4500);
   cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
  function exit(){$('#isle').classList.remove('on');document.body.style.overflow='';cancelAnimationFrame(raf);MAP.list();isl=null}
- function info(){const s=lectStats(L.id);$('#isleInfo').innerHTML=`<div class="t1">${esc(L.id)} ${esc(L.short.toUpperCase())}</div><div class="t2">(${esc(L.lec)}: ${esc(L.t)})</div>`;
+ function info(){const s=lectStats(L.id);$('#isleInfo').innerHTML=`<div class="t2" style="font-style:italic;color:#ffe48a">~ ${esc(L.nick||'')} ~</div><div class="t1">${esc(L.id)} ${esc(L.short.toUpperCase())}</div><div class="t2">(${esc(L.lec)}: ${esc(L.t)})</div>`;
   $('#isleProg').innerHTML=`<div class="t1"><span class="stars">${starStr(stars(L.id))}</span> ${S.boss[L.id]?'👑':''}</div><div class="t2">${s.cor}/${s.n} correct · ${s.seen} seen · ♥ ${S.hearts}/${S.maxH}</div>`}
  function msg(t,ms){const m=$('#isleMsg');m.innerHTML=t;m.style.display='block';clearTimeout(msgT);msgT=setTimeout(()=>m.style.display='none',ms||2500)}
  function tile(x,y){return isl.T[x]&&isl.T[x][y]}
@@ -1464,6 +1473,8 @@ addRegion({id:'chest',n:'Chest Fortress',col:'#5a5f6a',halo:'rgba(200,200,220,.1
 ].forEach(([id,lec,t,short,r])=>addLect({id,lec,t,short,r}));
 // lecture order (4.01 -> 4.21.4) drives the sky trail, lists, notes, quiz chips
 LECTS.sort((a,b)=>{const pa=a.id.split('.').map(Number),pb=b.id.split('.').map(Number);for(let i=0;i<3;i++){const d=(pa[i]||0)-(pb[i]||0);if(d)return d}return 0});
+// themed island nicknames (flavor text above the real title)
+const NICK={"4.01": "Glottis Spire", "4.02": "Waldeyer's Ring", "4.03": "Parotid Springs", "4.04": "Lymph Node Ridge", "4.05": "Singer's Knoll", "4.06": "Sneezewind Peak", "4.07": "Maxillary Hollow", "4.08": "Cerumen Cove", "4.09": "Ossicle Isle", "4.10": "Eustachian Bay", "4.11": "Otolith Spiral", "4.12": "Kiesselbach Falls", "4.13": "Thyroglossal Bluff", "4.14": "Croup Cradle", "4.15": "Plaque Plateau", "4.16": "Leukoplakia Mesa", "4.17": "Canker Canyon", "4.18": "Snorewood Hollow", "4.19.1": "Aphthous Atoll", "4.19.2": "Warthin Wharf", "4.20": "Septum Lookout", "4.21.1": "Golden Hour Gate", "4.21.2": "Tension Keep", "4.21.3": "Aortic Bastion", "4.21.4": "Needle Watchtower"};LECTS.forEach(L=>L.nick=NICK[L.id]||"");
 
 // auto-generated by mkimg.py
 const IMG={};
