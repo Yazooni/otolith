@@ -1552,7 +1552,7 @@ const HOME=(()=>{
  const PALS={wool:{n:'Wool Pack',p:300,m:['w_red','w_blue','w_yel','w_wht','w_blk','w_pur','w_pnk','w_org','w_grn','w_cyn']},glow:{n:'Glass & Lanterns',p:250,m:['glass','lantern','water','ice']},royal:{n:'Royal Pack',p:600,m:['gold','quartz','iron','obsid']},gem:{n:'Gem Pack',p:500,m:['crystal','amethyst','bloom','coral','mush','myc','bone','basalt']}};
  const DIRS={up:[-1,-1],down:[1,1],left:[-1,1],right:[1,-1],ur:[0,-1],ul:[-1,0],dr:[1,0],dl:[0,1]};
  const KMAP={arrowup:'up',w:'up',arrowdown:'down',s:'down',arrowleft:'left',a:'left',arrowright:'right',d:'right'};
- let mode='walk',sp='o',sel='grass',selItem=null,erase=false,rot=0,cv=null,ctx=null,Z=2,raf=0,showRoute=true,lect='';
+ let doorBack=null,roofs=true,roofLvl=99,cutLvl=99,mode='walk',sp='o',sel='grass',selItem=null,erase=false,rot=0,cv=null,ctx=null,Z=2,raf=0,showRoute=true,lect='';
  let pl={x:G-3,y:G-2,fx:G-3,fy:G-2,dir:'down'},pet={fx:G-3,fy:G-2},path=[],pend=null,keys={},lastStep=0,mouse=null,hov=null,parts=[],tour=null,lastO=null,heroC={k:'',c:{}};
 
  // ---------- state ----------
@@ -1560,7 +1560,13 @@ const HOME=(()=>{
  const blocks=w=>w==='o'?S.home:M().rooms[w].b;
  const N=w=>w==='o'?G:RN;
  const itemsIn=w=>M().pl.filter(p=>p.w===w);
- function topZ(x,y,w){w=w===undefined?sp:w;let z=0;blocks(w).forEach(b=>{if(b[0]===x&&b[1]===y)z=Math.max(z,b[2])});return z}
+ // block index (cached per space; rebuilt when the block list changes)
+ const IC=new WeakMap();let ver=0;const bump=()=>ver++;
+ function idx(w){const arr=blocks(w===undefined?sp:w);let c=IC.get(arr);if(!c||c.len!==arr.length||c.v!==ver){const s=new Set(),mx={};arr.forEach(b=>{s.add(b[0]+','+b[1]+','+b[2]);const k=b[0]+','+b[1];mx[k]=Math.max(mx[k]||0,b[2])});c={len:arr.length,v:ver,s,mx};IC.set(arr,c)}return c}
+ const hasB=(x,y,z,w)=>idx(w).s.has(x+','+y+','+z);
+ // standing surface = top of the solid stack from the ground; anything above a gap is a roof/overhang
+ function topZ(x,y,w){const s=idx(w).s;let z=0;while(s.has(x+','+y+','+(z+1)))z++;return z}
+ const covered=(x,y,w)=>(idx(w).mx[x+','+y]||0)>topZ(x,y,w);
  function itemAt(x,y,w){w=w===undefined?sp:w;return M().pl.find(p=>p.w===w&&p.x===x&&p.y===y)}
  const reg=m=>REGIONS.find(r=>r.id===(LMAP[m]||{}).r)||{col:'#3b6fd8',n:''};
  const spaceName=w=>w==='o'?'Outside':(M().rooms[w]||{}).n||'Room';
@@ -1590,11 +1596,12 @@ const HOME=(()=>{
   else{out.push({x:1,y:-1,to:w===0?'o':w-1,face:'y'});if(m.rooms[w+1])out.push({x:-1,y:RN-2,to:w+1,face:'x'})}return out}
  const doorAt=(x,y)=>doors(sp).find(d=>d.x===x&&d.y===y);
  const order=w=>w==='o'?-1:w;
- function canWalk(x,y,fz){const n=N(sp);if(x<0||y<0||x>=n||y>=n)return false;if(itemAt(x,y))return false;return Math.abs(topZ(x,y)-fz)<=1}
+ function canWalk(x,y,fz){const n=N(sp);if(x<0||y<0||x>=n||y>=n)return false;if(itemAt(x,y))return false;const z=topZ(x,y);if(hasB(x,y,z+2))return false;return Math.abs(z-fz)<=1}// needs 2 blocks of headroom
  function diagOK(x,y,dx,dy,z){if(Math.abs(dx)+Math.abs(dy)<2)return true;return canWalk(x+dx,y,z)||canWalk(x,y+dy,z)}
  function nearestFree(x,y){const n=N(sp),seen={},q=[[x,y]];while(q.length){const[a,b]=q.shift();const k=a+','+b;if(seen[k])continue;seen[k]=1;if(a>=0&&b>=0&&a<n&&b<n&&!itemAt(a,b)&&!doorAt(a,b))return[a,b];[[1,0],[0,1],[-1,0],[0,-1]].forEach(([dx,dy])=>{const nx=a+dx,ny=b+dy;if(nx>=-1&&ny>=-1&&nx<=n&&ny<=n)q.push([nx,ny])})}return[0,0]}
  function enterSpace(to,from){const f=from===undefined?sp:from;sp=to;rot=to==='o'?rot:0;let s;
-  if(to==='o'){const d=M().pl.find(p=>p.k==='door');s=d?nearestFree(d.x+1,d.y+1):[G-3,G-2]}
+  if(to==='o'){const d=M().pl.find(p=>p.k==='door');if(d){const c=[];if(doorBack)c.push(doorBack);const fr=doorOri(d)==='x'?[[d.x,d.y+1],[d.x,d.y-1]]:[[d.x+1,d.y],[d.x-1,d.y]];c.push(...fr);
+    s=c.find(([a,b])=>a>=0&&b>=0&&a<G&&b<G&&!itemAt(a,b,'o')&&!hasB(a,b,topZ(a,b,'o')+2,'o'))||nearestFree(d.x+1,d.y+1)}else s=[G-3,G-2];doorBack=null}
   else if(f==='o'||order(f)<to)s=[1,0];else s=[0,RN-2];
   pl.x=pl.fx=pet.fx=s[0];pl.y=pl.fy=pet.fy=s[1];pl.dir='down';path=[];pend=null;SND.place();
   for(let i=0;i<14;i++)parts.push({k:'spark',x:pl.x+(Math.random()-.5),y:pl.y+(Math.random()-.5),z:topZ(pl.x,pl.y),life:30+Math.random()*20,c:['#ffe48a','#fff','#9fd8ff'][i%3]});
@@ -1651,11 +1658,11 @@ const HOME=(()=>{
  function stepG(gdx,gdy){// move in grid space
   const[vx,vy]=g2v(gdx,gdy);pl.dir=dirOfV(vx,vy)||pl.dir;const nx=pl.x+gdx,ny=pl.y+gdy;const z=topZ(pl.x,pl.y);
   const d=doorAt(nx,ny);if(d){enterSpace(d.to);return'door'}
-  const it=itemAt(nx,ny);if(it){if(it.k==='door'){enterSpace(0);return'door'}use(it);return'item'}
+  const it=itemAt(nx,ny);if(it){if(it.k==='door'){doorBack=[pl.x,pl.y];enterSpace(0);return'door'}use(it);return'item'}
   if(canWalk(nx,ny,z)&&diagOK(pl.x,pl.y,gdx,gdy,z)){pl.x=nx;pl.y=ny;SND.step();for(let k=0;k<3;k++)parts.push({k:'dust',x:pl.fx+(Math.random()-.5)*.4,y:pl.fy+(Math.random()-.5)*.4,z:topZ(nx,ny),life:24,vz:.4+Math.random()*.4,dx:(Math.random()-.5)*.6});return'move'}
   return'blocked'}
  function tryMove(vd){const[vx,vy]=DIRS[vd];const[gx,gy]=v2g(vx,vy);return stepG(gx,gy)}
- function use(it){if(it.k==='door'){enterSpace(0);return}path=[];const t=tour;if(t)t.wait=1;station(it.k,ok=>{if(t&&tour===t&&t.wait){t.wait=0;if(!it.k.startsWith('sg')&&ok!==null&&ok!==undefined){t.n++;if(ok)t.ok++}t.i++;setTimeout(stepTour,250)}})}
+ function use(it){if(it.k==='door'){doorBack=[pl.x,pl.y];enterSpace(0);return}path=[];const t=tour;if(t)t.wait=1;station(it.k,ok=>{if(t&&tour===t&&t.wait){t.wait=0;if(!it.k.startsWith('sg')&&ok!==null&&ok!==undefined){t.n++;if(ok)t.ok++}t.i++;setTimeout(stepTour,250)}})}
  function act(){const[vx,vy]=DIRS[pl.dir];const[gx,gy]=v2g(vx,vy);const nx=pl.x+gx,ny=pl.y+gy;const d=doorAt(nx,ny),it=itemAt(nx,ny);if(d)enterSpace(d.to);else if(it)use(it);else toast('Face a memory item or a door and press Space.')}
  function bfs(tx,ty,adj){const prev={},q=[[pl.x,pl.y]],key=(x,y)=>x+','+y;prev[key(pl.x,pl.y)]=null;let found=null;
   while(q.length){const[x,y]=q.shift();if(adj?Math.max(Math.abs(x-tx),Math.abs(y-ty))===1:(x===tx&&y===ty)){found=[x,y];break}
@@ -1676,20 +1683,20 @@ const HOME=(()=>{
    <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ${mode==='walk'?'green':'gray'}" id="hmWalk">🚶 Walk</button><button class="btn ${mode==='build'?'blue':'gray'}" id="hmBuild">🔨 Build</button>
     <span class="chip on" title="Where you are">📍 ${esc(spaceName(sp))}</span><span class="muted">${nPl}/${nOwn} items placed${dueN?` · <b style="color:#c46f3c">${dueN} to review today</b>`:''}</span></div>
    <div class="row" style="gap:6px;flex-wrap:wrap">${tour?`<span class="chip on">🧭 Stop ${Math.min(tour.i+1,tour.list.length)}/${tour.list.length}</span><button class="btn red" id="hmStop">Stop route</button>`:`<button class="btn" id="hmTour" style="background:#ffd34d">🧭 Walk my route</button>`}
-    <button class="btn gray" id="hmNums">${showRoute?'Hide':'Show'} route #s</button>${sp==='o'?`<button class="btn gray" id="hmRot">Rotate ⟳</button>`:''}<button class="btn gray" id="hmHelp">?</button></div></div>`;
+    ${mode==='build'?`<button class="btn ${roofs?'gray':'blue'}" id="hmRoof" title="Hide roofs and overhangs so you can build and place items inside">🏠 Roofs: ${roofs?'shown':'hidden'}</button>`:''}<button class="btn gray" id="hmNums">${showRoute?'Hide':'Show'} route #s</button>${sp==='o'?`<button class="btn gray" id="hmRot">Rotate ⟳</button>`:''}<button class="btn gray" id="hmHelp">?</button></div></div>`;
   $('#hmWalk').onclick=()=>{mode='walk';erase=false;render()};$('#hmBuild').onclick=()=>{if(tour)stopTour();mode='build';render()};
   if($('#hmTour'))$('#hmTour').onclick=()=>{if(mode!=='walk'){mode='walk';render()}startTour()};if($('#hmStop'))$('#hmStop').onclick=()=>stopTour('Route stopped.');
-  $('#hmNums').onclick=()=>{showRoute=!showRoute;header()};if($('#hmRot'))$('#hmRot').onclick=()=>{rot=(rot+1)%4};$('#hmHelp').onclick=help}
+  $('#hmNums').onclick=()=>{showRoute=!showRoute;header()};if($('#hmRoof'))$('#hmRoof').onclick=()=>{roofs=!roofs;header()};if($('#hmRot'))$('#hmRot').onclick=()=>{rot=(rot+1)%4};$('#hmHelp').onclick=help}
  function help(){modal(`<h3 class="px" style="font-size:12px">🏛 YOUR MIND PALACE</h3><div style="font-size:15px;line-height:1.5">
   <p>Memory champions use the <b>method of loci</b>: put each fact in a specific <b>place</b> along a route you know, then walk that route in your head. Places are much easier to remember than lists.</p>
   <p>📜 <b>Pages</b>: every lecture's notes become pages. You earn them by answering that island's questions correctly.<br>📕 <b>Tome</b>: earned at ★★ on an island. 🏆 <b>Trophy</b>: earned when you beat the island's boss (gold at ★★★).<br>🪧 <b>Signs</b>: free. Write your own mnemonic and plant it anywhere.</p>
-  <p>🔨 <b>Build</b>: stack blocks, build your house, and place items. The 🚪 door leads into your house; add more rooms as you go.<br>🚶 <b>Walk</b>: move with WASD/arrows or click. Walk into an item (or press Space) to <b>recall it first, then reveal</b>.<br>🧭 <b>Walk my route</b>: your hero tours every item in the order you placed them. Same route every time = stronger memory.</p>
+  <p>🔨 <b>Build</b>: click the <b>top</b> of a block to stack, or its <b>side</b> to build outward, so you can make overhangs, arches and roofs. <b>Right-click</b> removes a block. The 🚪 door turns to sit in your wall (click it to flip). Leave a 1-wide, 2-tall gap in your wall for it. Use 🏠 Roofs: hidden to work inside.<br>🚶 <b>Walk</b>: move with WASD/arrows or click. Walk into an item (or press Space) to <b>recall it first, then reveal</b>.<br>🧭 <b>Walk my route</b>: your hero tours every item in the order you placed them. Same route every time = stronger memory.</p>
   <p><b>Tips:</b> give each region its own room (Ear room, Nose room…), put pages in lecture order along the walls, and put a sign at each doorway.<br>Items that glow need review today. Orange means it was fuzzy last time.</p></div>
   <button class="btn green" onclick="closeModal()">Got it</button>`);M().tut=1;save()}
  function render(){const host=$('#p-home');M();if(!itemsIn('o').some(p=>p.k==='door'))autoDoor();
   host.innerHTML=`<div class="card" id="hmHead"></div><div class="hmWrap"><canvas id="homeCv"></canvas>${mode==='walk'?`<div class="hmPad">${['ul','up','ur','left','act','right','dl','down','dr'].map(d=>`<button data-d="${d}" class="${d.length===2&&d!=='up'?'dg':''}">${{ul:'↖',up:'▲',ur:'↗',left:'◀',act:'●',right:'▶',dl:'↙',down:'▼',dr:'↘'}[d]}</button>`).join('')}</div>`:''}<div class="hmTip" id="hmTip"></div></div><div id="hmBelow"></div>`;
   header();below();cv=$('#homeCv');ctx=cv.getContext('2d');
-  cv.onpointerdown=click;cv.onpointermove=e=>{const r=cv.getBoundingClientRect();mouse={x:e.clientX-r.left,y:e.clientY-r.top}};cv.onpointerleave=()=>{mouse=null};
+  cv.onpointerdown=click;cv.oncontextmenu=e=>e.preventDefault();cv.onpointermove=e=>{const r=cv.getBoundingClientRect();mouse={x:e.clientX-r.left,y:e.clientY-r.top}};cv.onpointerleave=()=>{mouse=null};
   host.querySelectorAll('.hmPad button').forEach(b=>{let iv=null;const d=b.dataset.d;const go=()=>{d==='act'?act():tryMove(d)};b.addEventListener('pointerdown',e=>{e.preventDefault();path=[];pend=null;go();if(d!=='act')iv=setInterval(go,200)});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>clearInterval(iv)))});
   cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);if(!M().tut)setTimeout(help,300)}
  function autoDoor(){for(const[x,y]of[[5,3],[6,3],[4,3],[5,4],[3,3]])if(!itemAt(x,y,'o')){M().pl.push({k:'door',w:'o',x,y});save();return}}
@@ -1710,7 +1717,7 @@ const HOME=(()=>{
     <div class="row" style="margin-top:8px;gap:6px"><label class="muted">Lecture</label><select id="hmLect">${lectsWith.map(X=>`<option value="${X.id}" ${X.id===lect?'selected':''}>${X.id} ${esc(X.short)} · ${pagesOwned(X.id)}/${(NOTES[X.id]||[]).length} pages${stars(X.id)>=2?' · 📕':''}${S.boss[X.id]?' · 🏆':''}</option>`).join('')}</select></div>
     <div class="mis" style="margin-top:8px">${pages}${itBtn('tm|'+lect,stars(lect)<2,'Tome',stars(lect)<2?'Reach ★★ on this island':'All notes')}${itBtn('tr|'+lect,!S.boss[lect],'Trophy',!S.boss[lect]?'Beat this island\'s boss':'')}</div>
     <div class="mis" style="margin-top:8px">${itBtn('door',false,'House door','The way into your house')}${Object.keys(m.signs).map(i=>itBtn('sg|'+i,false,esc(m.signs[i].slice(0,14))+(m.signs[i].length>14?'…':''),m.signs[i])).join('')}<button class="mi" id="hmSign"><span class="ic">➕</span>New sign</button></div></div>
-   <div class="card"><b>Blocks</b> <span class="muted">(earned from correct answers and mining) · click a tile top to stack</span><div class="pal" id="hmInv" style="margin-top:8px"></div></div>
+   <div class="card"><b>Blocks</b> <span class="muted">(earned from correct answers and mining) · click a block's top to stack, its side to build outward (roofs, arches) · right-click removes</span><div class="pal" id="hmInv" style="margin-top:8px"></div></div>
    <div class="card"><b>Block market</b> <span class="muted">8 blocks for 10 <i class="gem"></i> · unlock packs for more blocks</span><div class="pal" id="hmMk" style="margin-top:8px"></div><div class="row" style="margin-top:10px">${Object.entries(PALS).map(([k,p])=>S.own.pal[k]?`<span class="chip on">✓ ${p.n}</span>`:`<button class="btn blue" data-pal="${k}">Unlock ${p.n} · ${p.p} <i class="gem"></i></button>`).join('')}</div></div>`;
   $('#hmInv').innerHTML=inv.length?inv.map(m=>`<button data-m="${m}" class="${!selItem&&sel===m?'on':''}"><canvas width="32" height="32"></canvas>${esc(VOX.MAT[m].n)}<br>×${S.inv[m]}</button>`).join(''):'<span class="muted">Answer questions to earn blocks!</span>';
   $('#hmMk').innerHTML=market().map(m=>`<button data-buy="${m}"><canvas width="32" height="32"></canvas>${esc(VOX.MAT[m].n)}<br>+8 · 10<i class="gem"></i></button>`).join('');
@@ -1735,7 +1742,7 @@ const HOME=(()=>{
  function standPt(x,y,o){const[vx,vy]=rp(x,y);const[X,Y]=isoXY(vx,vy,topZ(x,y),Z);return[X+o.ox,Y+o.oy+8*Z]}
  function px(x,y,u){return(a,b,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(x+a*u,y+b*u,w*u,h*u)}}
  function drawItem(p,o,t){const[sx,sy]=standPt(p.x,p.y,o);const u=Z*1.9;const P=px(sx,sy,u);const k=p.k;const f=info(k);const col=f.m?reg(f.m).col:'#8a5a35';const bob=Math.sin(t*2+p.x+p.y)*1.2*Z;const r=M().rv[k];
-  if(k==='door'){drawHouseDoor(sx,sy,t);return}
+  if(k==='door'){drawHouseDoor(p,o,t);return}
   // pedestal
   ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(sx,sy,8*Z,4*Z,0,0,7);ctx.fill();
   if(k.startsWith('sg')){P(-1,-14,2,14,'#6b4226');P(-7,-20,14,9,'#c89a5a');P(-7,-20,14,1,'#e6c08a');P(-7,-12,14,1,'#8a5a35');P(-5,-17,10,1,'#5a3a1a');P(-5,-15,7,1,'#5a3a1a');return}
@@ -1746,7 +1753,23 @@ const HOME=(()=>{
   else if(k.startsWith('tm')){const Q=px(sx,sy+y0*u,u);Q(-6,-12,12,11,'#14213d');Q(-5,-11,10,9,col);Q(-5,-11,2,9,'rgba(0,0,0,.25)');Q(-1,-9,5,1,'#ffe48a');Q(-1,-6,5,1,'#ffe48a');Q(4,-11,1,9,'#fffaf0')}
   else if(k.startsWith('tr')){const g=stars(f.m)===3;const a=g?'#ffd34d':'#d6dde6',b=g?'#c99a1a':'#9aa3ad';const Q=px(sx,sy+y0*u,u);Q(-4,-14,8,6,a);Q(-6,-13,2,3,b);Q(4,-13,2,3,b);Q(-1,-8,2,3,b);Q(-3,-5,6,2,b);Q(-2,-13,2,4,'rgba(255,255,255,.55)');if(Math.sin(t*3+p.x)>.7)glow(sx,sy+(y0-12)*u,'rgba(255,255,255,.6)',8*Z)}
   if(r&&r.d===today()&&r.ok){P(4,-9,3,3,'#1f9e4f');P(5,-8,1,1,'#fff')}}
- function drawHouseDoor(sx,sy,t){const u=Z*1.6,P=px(sx,sy,u);glow(sx,sy-14*Z,'rgba(255,220,140,.3)',26*Z);P(-8,-26,16,26,'#3a2614');P(-7,-25,14,25,'#7a4a26');P(-6,-24,12,23,'#8f5a2e');for(let i=0;i<3;i++)P(-6+i*4,-24,1,23,'#6b4022');P(-8,-28,16,3,'#5a3a1a');P(3,-12,2,2,'#ffd34d');P(-10,-1,20,2,'#5a3a1a')}
+ // house door: a 1-wide, 2-tall panel standing in the wall line (auto-turns to match neighbouring wall blocks)
+ function doorOri(p){if(p.o)return p.o;const s=topZ(p.x,p.y,'o');let ax=0,ay=0;[1,2].forEach(dz=>{if(hasB(p.x-1,p.y,s+dz,'o'))ax++;if(hasB(p.x+1,p.y,s+dz,'o'))ax++;if(hasB(p.x,p.y-1,s+dz,'o'))ay++;if(hasB(p.x,p.y+1,s+dz,'o'))ay++});return ay>ax?'y':'x'}
+ const PT=(o,gx,gy,h)=>[(gx-gy)*16*Z+o.ox,(gx+gy)*8*Z-h*16*Z+o.oy];// continuous iso point (h = height in blocks)
+ function drawHouseDoor(p,o,t){const s=topZ(p.x,p.y);const[vx,vy]=rp(p.x,p.y);let ori=doorOri(p);if(rot%2)ori=ori==='x'?'y':'x';
+  const F=(a,h)=>ori==='x'?PT(o,vx+a,vy+.5,s+h):PT(o,vx+.5,vy+a,s+h);
+  const quad=(a0,a1,h0,h1,c)=>{const P=[F(a0,h0),F(a1,h0),F(a1,h1),F(a0,h1)];ctx.beginPath();ctx.moveTo(P[0][0],P[0][1]);for(let i=1;i<4;i++)ctx.lineTo(P[i][0],P[i][1]);ctx.closePath();ctx.fillStyle=c;ctx.fill()};
+  const dk=ori==='x';// faces the lower-left: a touch darker, like cube side shading
+  const[gx,gy]=F(.5,1);glow(gx,gy,'rgba(255,220,140,'+(.22+.06*Math.sin(t*2.5))+')',30*Z);
+  // threshold on the floor
+  const T=[PT(o,vx+(dk?0:.3),vy+(dk?.3:0),s),PT(o,vx+(dk?1:.7),vy+(dk?.3:0),s),PT(o,vx+(dk?1:.7),vy+(dk?.7:1),s),PT(o,vx+(dk?0:.3),vy+(dk?.7:1),s)];ctx.beginPath();ctx.moveTo(T[0][0],T[0][1]);T.slice(1).forEach(q=>ctx.lineTo(q[0],q[1]));ctx.closePath();ctx.fillStyle='#5a3a1a';ctx.fill();
+  quad(0,1,0,2,'#3a2614');// frame
+  quad(.1,.9,0,1.86,dk?'#7d4c26':'#8f5a2e');// panel
+  for(const a of[.3,.5,.7])quad(a,a+.025,.04,1.82,dk?'#5e3a1c':'#6b4022');// planks
+  quad(.1,.9,1.62,1.68,dk?'#5e3a1c':'#6b4022');quad(.1,.9,.5,.56,dk?'#5e3a1c':'#6b4022');// cross rails
+  quad(.74,.82,.9,1.0,'#ffd34d');// knob
+  quad(-.04,1.04,1.94,2.08,'#5a3a1a');// lintel
+  const[lx,ly]=F(.5,2.25);ctx.fillStyle='#5a3a1a';ctx.fillRect(lx-Z,ly-Z,2*Z,4*Z);const fl=Math.sin(t*11)*.6;ctx.fillStyle='#ff9a2a';ctx.fillRect(lx-2*Z,ly-5*Z-fl*Z,4*Z,4*Z);ctx.fillStyle='#ffe48a';ctx.fillRect(lx-Z,ly-4*Z-fl*Z,2*Z,2*Z)}
  function drawWallDoor(d,o,t){// opening on an interior wall with a wooden door face
   const[vx,vy]=[d.x,d.y];const[X0,Y0]=isoXY(vx,vy,1,Z),[X1,Y1]=isoXY(vx,vy,2,Z);const X=X0+o.ox,Ya=Y1+o.oy,Yb=Y0+o.oy;
   ctx.beginPath();if(d.face==='y'){ctx.moveTo(X-16*Z,Ya+8*Z);ctx.lineTo(X,Ya+16*Z);ctx.lineTo(X,Yb+32*Z);ctx.lineTo(X-16*Z,Yb+24*Z)}else{ctx.moveTo(X,Ya+16*Z);ctx.lineTo(X+16*Z,Ya+8*Z);ctx.lineTo(X+16*Z,Yb+24*Z);ctx.lineTo(X,Yb+32*Z)}ctx.closePath();
@@ -1779,13 +1802,20 @@ const HOME=(()=>{
   if(S.eq.pet!=='none'){const n1=n-1;const ex=rot===0?pet.fx:rot===1?n1-pet.fy:rot===2?n1-pet.fx:pet.fy,ey=rot===0?pet.fy:rot===1?pet.fx:rot===2?n1-pet.fy:n1-pet.fx;ents.push({k:ex+ey+.5,f:()=>drawPet(o,t,ex,ey)})}
   ents.sort((a,b)=>a.k-b.k);let ei=0;const C={};blocks(sp).forEach(b=>{const k=b[0]+','+b[1];(C[k]=C[k]||[]).push(b)});
   const ord=[];for(let x=0;x<n;x++)for(let y=0;y<n;y++){const[vx,vy]=rp(x,y);ord.push([vx+vy,vx,vy,x,y])}ord.sort((a,b)=>a[0]-b[0]);
-  const hb=mode==='build'&&mouse&&!busy?hit(mouse.x,mouse.y):null;for(const[s,vx,vy,x,y]of ord){while(ei<ents.length&&ents[ei].k<=s){ents[ei].f();ei++}
+  levels();
+  const pick0=mode==='build'&&mouse&&!busy?pick(mouse.x,mouse.y):null;for(const[s,vx,vy,x,y]of ord){while(ei<ents.length&&ents[ei].k<=s){ents[ei].f();ei++}
    if(sp==='o'){const d=Math.round(2+2*Math.max(0,1-Math.hypot(x-5.5,y-5.5)/8));for(let z=-d;z<1;z++){const[X,Y]=isoXY(vx,vy,z,Z);drawCube(ctx,z===0?'grass':z===-1?'dirt':'stone',X+o.ox,Y+o.oy,Z)}}
    else{const[X,Y]=isoXY(vx,vy,0,Z);drawCube(ctx,VOX.MAT[room.f]?room.f:'plank',X+o.ox,Y+o.oy,Z)}
-   (C[x+','+y]||[]).sort((a,b)=>a[2]-b[2]).forEach(b=>{const[X,Y]=isoXY(vx,vy,b[2],Z);drawCube(ctx,b[3],X+o.ox,Y+o.oy,Z)});
-   if(hb&&hb.x===x&&hb.y===y){const[X,Y]=isoXY(vx,vy,topZ(x,y),Z);const cx=X+o.ox,cy=Y+o.oy+8*Z;ctx.strokeStyle=erase?'#ff5a5a':'#ffe48a';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(cx,cy-8*Z);ctx.lineTo(cx+16*Z,cy);ctx.lineTo(cx,cy+8*Z);ctx.lineTo(cx-16*Z,cy);ctx.closePath();ctx.stroke()}
-   const it=itemAt(x,y);if(it){const pg=[Math.round(pk.fx),Math.round(pk.fy)];const fr=vx>=pg[0]&&vy>=pg[1]&&(vx>pg[0]||vy>pg[1])&&vx-pg[0]<=2&&vy-pg[1]<=2;if(fr)ctx.globalAlpha=.4;drawItem(it,o,t);ctx.globalAlpha=1}}
+   const s0=topZ(x,y),col=(C[x+','+y]||[]).sort((a,b)=>a[2]-b[2]);
+   const cube=b=>{const a=roofA(b);if(a<=0)return;ctx.globalAlpha=a;const[X,Y]=isoXY(vx,vy,b[2],Z);drawCube(ctx,b[3],X+o.ox,Y+o.oy,Z);ctx.globalAlpha=1};
+   col.forEach(b=>{if(b[2]<=s0)cube(b)});
+   const it=itemAt(x,y);if(it){const pg=[Math.round(pk.fx),Math.round(pk.fy)];const fr=it.k!=='door'&&vx>=pg[0]&&vy>=pg[1]&&(vx>pg[0]||vy>pg[1])&&vx-pg[0]<=2&&vy-pg[1]<=2;if(fr)ctx.globalAlpha=.4;drawItem(it,o,t);ctx.globalAlpha=1}
+   // roofs / overhangs (anything above the walkable stack) go after the item so they cover it properly
+   col.forEach(b=>{if(b[2]>s0)cube(b)})}
   while(ei<ents.length){ents[ei].f();ei++}
+  // x-ray: faint hero on top so you never lose them behind walls
+  ctx.globalAlpha=.3;drawPlayer(o,t,pk,1);ctx.globalAlpha=1;
+  if(pick0)preview(pick0,o);
   // route numbers + dotted path
   if(showRoute){const L=itemsIn(sp).filter(p=>p.k!=='door');const all=routeList();ctx.setLineDash([4*Z,4*Z]);ctx.strokeStyle='rgba(255,228,138,.55)';ctx.lineWidth=1.5*Z;ctx.beginPath();L.forEach((p,i)=>{const[a,b]=standPt(p.x,p.y,o);i?ctx.lineTo(a,b):ctx.moveTo(a,b)});ctx.stroke();ctx.setLineDash([]);
    L.forEach(p=>{const[a,b]=standPt(p.x,p.y,o);const num=all.indexOf(p)+1;const fs=Math.max(10,4.5*Z);ctx.font='900 '+fs+'px Nunito';const w=Math.max(fs+6,ctx.measureText(num).width+8);const yy=b-(p.k.startsWith('sg')?44:50)*Z;const cur=tour&&tour.list[tour.i]===p;ctx.fillStyle=cur?'#ff7a2a':'rgba(20,24,46,.85)';ctx.fillRect(a-w/2,yy-fs,w,fs+4);ctx.fillStyle='#ffe48a';ctx.textAlign='center';ctx.fillText(num,a,yy+1);ctx.textAlign='left'})}
@@ -1795,10 +1825,10 @@ const HOME=(()=>{
    if(p.k==='dust'){const a=p.life/24;ctx.fillStyle=`rgba(235,225,200,${a})`;const s=(3+(1-a)*3)*Z;ctx.fillRect(sx+p.dx*(24-p.life)*Z-s/2,sy-(24-p.life)*p.vz*Z-s/2,s,s)}
    else{const a=Math.min(1,p.life/25);ctx.globalAlpha=a;ctx.fillStyle=p.c;const rise=(p.k==='spark'?50:60)-p.life;ctx.fillRect(sx+Math.sin(p.life*.2)*3*Z,sy-rise*.8*Z-10*Z,2*Z,2*Z);ctx.globalAlpha=1}});
   if(hov)hoverMark(hov,o,t);
-  if(mode==='build'&&(selItem||erase)){const tip=$('#hmTip');if(tip){tip.style.display='block';tip.innerHTML=erase?'Erase: click an item or block to pick it up':`Placing: ${info(selItem).ic} ${esc(info(selItem).kind==='Page'?info(selItem).sub:info(selItem).t)}`}}else{const tip=$('#hmTip');if(tip)tip.style.display='none'}}
- function drawPlayer(o,t,pk){const z=topZ(Math.round(pl.fx),Math.round(pl.fy));const[X,Y]=isoXY(pk.fx,pk.fy,z,Z);const sx=X+o.ox,sy=Y+o.oy+8*Z;const moving=Math.abs(pl.x-pl.fx)+Math.abs(pl.y-pl.fy)>.05;
+  if(mode==='build'){const tip=$('#hmTip');if(tip){tip.style.display='block';tip.innerHTML=erase?'Erase: click an item or block to pick it up':selItem?`Placing: ${info(selItem).ic} ${esc(info(selItem).kind==='Page'?info(selItem).sub:info(selItem).t)}`:`🧱 ${esc(VOX.MAT[sel]?VOX.MAT[sel].n:sel)} ×${S.inv[sel]||0} · top = stack · side = build out · right-click = remove`}}else{const tip=$('#hmTip');if(tip)tip.style.display='none'}}
+ function drawPlayer(o,t,pk,ghost){const z=topZ(Math.round(pl.fx),Math.round(pl.fy));const[X,Y]=isoXY(pk.fx,pk.fy,z,Z);const sx=X+o.ox,sy=Y+o.oy+8*Z;const moving=Math.abs(pl.x-pl.fx)+Math.abs(pl.y-pl.fy)>.05;
   const vd=pl.dir==='left'||pl.dir==='right'?'side':(pl.dir==='up'||pl.dir==='ur'||pl.dir==='ul'?'up':'down');const sp2=heroSprite(vd,moving?Math.floor(t*8):0);const flip=pl.dir==='left'||pl.dir==='ul'||pl.dir==='dl';
-  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(sx,sy,8*Z,4*Z,0,0,7);ctx.fill();
+  if(!ghost){ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(sx,sy,8*Z,4*Z,0,0,7);ctx.fill()}
   ctx.save();ctx.translate(sx,sy-sp2.height*Z+2*Z+(moving?-Math.abs(Math.sin(t*16))*Z:0));if(flip)ctx.scale(-1,1);ctx.drawImage(sp2,-sp2.width*Z/2,0,sp2.width*Z,sp2.height*Z);ctx.restore()}
  function drawPet(o,t,ex,ey){const sp2=HERO.petSprite(S.eq.pet,Math.floor(t*4));if(!sp2)return;const z=topZ(Math.round(pet.fx),Math.round(pet.fy));const[X,Y]=isoXY(ex,ey,z,Z);const fly=['owl','dragon','bee'].includes(S.eq.pet);
   ctx.drawImage(sp2,X+o.ox-sp2.width*Z*.6+10*Z,Y+o.oy+8*Z-sp2.height*Z*1.2-(fly?10*Z+Math.sin(t*3)*3*Z:0),sp2.width*Z*1.2,sp2.height*Z*1.2)}
@@ -1811,24 +1841,57 @@ const HOME=(()=>{
   const fs=Math.max(12,5.5*Z);ctx.font='800 '+fs+'px Nunito';const w=ctx.measureText(txt).width+18,h=fs+12;let bx=sx-w/2;bx=Math.max(4,Math.min(bx,cv.getBoundingClientRect().width-w-4));const by=sy-48*Z-h;
   ctx.fillStyle='rgba(20,24,46,.92)';ctx.fillRect(bx,by,w,h);ctx.strokeStyle='#ffe48a';ctx.lineWidth=2;ctx.strokeRect(bx,by,w,h);ctx.fillStyle='#fff';ctx.textBaseline='middle';ctx.fillText(txt,bx+9,by+h/2+1);ctx.textBaseline='alphabetic'}
  // tile under the pointer (front-to-back), for build clicks and walk taps
- function hit(mx,my){const o=lastO;if(!o)return null;const n=N(sp);const ord=[];for(let x=0;x<n;x++)for(let y=0;y<n;y++){const[vx,vy]=rp(x,y);ord.push([vx+vy,vx,vy,x,y])}ord.sort((a,b)=>b[0]-a[0]);
-  for(const[s,vx,vy,x,y]of ord){const[X,Y]=isoXY(vx,vy,topZ(x,y),Z);const cx=X+o.ox,cy=Y+o.oy+8*Z;if(Math.abs(mx-cx)/(16*Z)+Math.abs(my-cy)/(8*Z)<=1.05)return{x,y}}return null}
+ // roof opacity: hidden by the build toggle, ghosted while your hero stands under one
+ // roofs are cut by height level: everything from the lowest overhang up (build toggle), or from the roof right above your hero (walk)
+ function levels(){let r=99;blocks(sp).forEach(b=>{if(b[2]>topZ(b[0],b[1]))r=Math.min(r,b[2])});roofLvl=r;cutLvl=99;if(mode==='walk'){const s=topZ(pl.x,pl.y);blocks(sp).forEach(b=>{if(b[0]===pl.x&&b[1]===pl.y&&b[2]>s)cutLvl=Math.min(cutLvl,b[2])})}}
+ function roofA(b){if(mode==='build'&&!roofs&&b[2]>=roofLvl)return 0;return b[2]>=cutLvl?.22:1}
+ // face picking, front-most first: which cube face is under the pointer (ground tiles expose only their top)
+ function pick(mx,my){const o=lastO;if(!o)return null;const n=N(sp),c=[];
+  for(let x=0;x<n;x++)for(let y=0;y<n;y++){const[vx,vy]=rp(x,y);c.push({x,y,z:0,vx,vy,g:1})}
+  blocks(sp).forEach(b=>{if(roofA(b)<.5)return;const[vx,vy]=rp(b[0],b[1]);c.push({x:b[0],y:b[1],z:b[2],vx,vy,b})});
+  c.sort((a,b)=>(b.vx+b.vy)-(a.vx+a.vy)||b.z-a.z);
+  for(const q of c){const[X0,Y0]=isoXY(q.vx,q.vy,q.z,Z);const dx=mx-(X0+o.ox),dy=my-(Y0+o.oy);if(Math.abs(dx)>16*Z)continue;
+   if(Math.abs(dx)/(16*Z)+Math.abs(dy-8*Z)/(8*Z)<=1)return{c:q,face:'top'};if(q.g)continue;
+   const up=16*Z-Math.abs(dx)/2;if(dy>=up&&dy<=up+16*Z)return{c:q,face:dx<0?'left':'right'}}return null}
+ function nbr(pk){const{x,y,z}=pk.c;if(pk.face==='top')return{x,y,z:z+1};const[gx,gy]=v2g(pk.face==='left'?0:1,pk.face==='left'?1:0);return{x:x+gx,y:y+gy,z}}
+ const inB=(x,y)=>{const n=N(sp);return x>=0&&y>=0&&x<n&&y<n};
+ function canPlace(t){if(!inB(t.x,t.y))return'That\'s the edge of the '+(sp==='o'?'island':'room');if(t.z<1)return'Can\'t build into the ground';
+  if(t.z>(sp==='o'?14:3))return sp==='o'?'Max height':'The ceiling is right there';if(hasB(t.x,t.y,t.z))return'Something is already there';
+  const s=topZ(t.x,t.y);if(t.x===pl.x&&t.y===pl.y&&t.z<=s+2)return'Your hero is standing there';if(itemAt(t.x,t.y)&&t.z<=s+2)return'A memory item is there. Build above it, or move it first';return''}
+ // where an item would go: on a walkable surface (floor or the top of a solid stack)
+ function itemCell(pk){if(pk.face==='top')return pk.c.z===topZ(pk.c.x,pk.c.y)?{x:pk.c.x,y:pk.c.y}:null;const t=nbr(pk);return inB(t.x,t.y)&&t.z===topZ(t.x,t.y)+1?{x:t.x,y:t.y}:null}
+ function facePath(q,face,o){const[X0,Y0]=isoXY(q.vx,q.vy,q.z,Z);const X=X0+o.ox,Y=Y0+o.oy,z=16*Z,h=8*Z;
+  const P=face==='top'?[[X,Y],[X+z,Y+h],[X,Y+2*h],[X-z,Y+h]]:face==='left'?[[X-z,Y+h],[X,Y+2*h],[X,Y+4*h],[X-z,Y+3*h]]:face==='right'?[[X,Y+2*h],[X+z,Y+h],[X+z,Y+3*h],[X,Y+4*h]]:[[X,Y],[X+z,Y+h],[X+z,Y+3*h],[X,Y+4*h],[X-z,Y+3*h],[X-z,Y+h]];
+  ctx.beginPath();ctx.moveTo(P[0][0],P[0][1]);P.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath()}
+ function preview(pk,o){const tip=$('#hmTip');ctx.lineWidth=2.5;
+  if(erase){if(pk.c.b){facePath(pk.c,'all',o);ctx.fillStyle='rgba(255,70,70,.25)';ctx.fill();ctx.strokeStyle='#ff5a5a';ctx.stroke()}return}
+  if(selItem){const c=itemCell(pk);if(!c){facePath(pk.c,pk.face,o);ctx.strokeStyle='#ff5a5a';ctx.stroke();return}const[sx,sy]=standPt(c.x,c.y,o);const ok=!itemAt(c.x,c.y)&&!(c.x===pl.x&&c.y===pl.y);ctx.strokeStyle=ok?'#7dffb0':'#ff5a5a';ctx.beginPath();ctx.ellipse(sx,sy,14*Z,7*Z,0,0,7);ctx.stroke();return}
+  const t=nbr(pk),bad=canPlace(t);facePath(pk.c,pk.face,o);ctx.strokeStyle=bad?'#ff5a5a':'#ffe48a';ctx.stroke();
+  if(!bad&&S.inv[sel]>0){const[vx,vy]=rp(t.x,t.y);const[X,Y]=isoXY(vx,vy,t.z,Z);ctx.globalAlpha=.55;drawCube(ctx,sel,X+o.ox,Y+o.oy,Z);ctx.globalAlpha=1;facePath({vx,vy,z:t.z},'all',o);ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=1.5;ctx.stroke()}}
+ // tile under the pointer, for walk taps: the top you clicked, or the tile in front of the side you clicked
+ function hit(mx,my){const pk=pick(mx,my);if(!pk)return null;if(pk.face==='top')return{x:pk.c.x,y:pk.c.y};const t=nbr(pk);return inB(t.x,t.y)?{x:t.x,y:t.y}:{x:pk.c.x,y:pk.c.y}}
  function click(e){const r=cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;mouse={x:mx,y:my};
   if(mode==='walk'){if(tour)stopTour('Route paused. Press 🧭 to start again.');const tg=targetAt(mx,my);if(tg){goUse(tg);return}const h=hit(mx,my);if(!h)return;const rr=bfs(h.x,h.y,false);if(rr){path=rr.steps;pend=null}return}
-  const tg=targetAt(mx,my);const h=tg&&tg.kind==='item'?{x:tg.x,y:tg.y}:hit(mx,my);if(!h)return;const{x,y}=h;const m=M();const it=itemAt(x,y);
-  if(erase){if(it){m.pl=m.pl.filter(p=>p!==it);SND.crack();toast(`${info(it.k).ic} Picked up. Place it somewhere else.`)}else{const col=blocks(sp).filter(b=>b[0]===x&&b[1]===y);if(!col.length)return;const b=col.sort((a,b)=>b[2]-a[2])[0];const arr=blocks(sp);arr.splice(arr.indexOf(b),1);addBlocks(b[3],1);SND.crack()}save();below();header();return}
-  if(x===pl.x&&y===pl.y){toast('Your hero is standing there.');return}
-  if(selItem){if(it){toast('Something is already there.');return}if(placed(selItem)){selItem=null;below();return}m.pl.push({k:selItem,w:sp,x,y});SND.place();const[sx,sy]=standPt(x,y,lastO);burst(['#ffe48a','#fff','#9fd8ff'],24,r.left+sx,r.top+sy-20*Z);const f=info(selItem);toast(`${f.ic} Placed in ${esc(spaceName(sp))} as stop #${routeList().findIndex(p=>p.k===selItem)+1}`);selItem=null;save();checkMedals();below();header();return}
-  if(it){toast('An item is on that tile. Use Erase to move it first.');return}
-  if(!(S.inv[sel]>0)){toast('No '+(VOX.MAT[sel]?VOX.MAT[sel].n:sel)+' left. Earn or buy more.');return}const z=topZ(x,y);if(z+1>(sp==='o'?14:3)){toast(sp==='o'?'Max height':'The ceiling is right there');return}
-  blocks(sp).push([x,y,z+1,sel]);S.inv[sel]--;SND.place();checkMedals();save();below()}
+  const tg=targetAt(mx,my);const m=M();const pk=pick(mx,my);
+  if(erase||e.button===2){if(tg&&tg.kind==='item'){const it=tg.p;m.pl=m.pl.filter(p=>p!==it);SND.crack();toast(`${info(it.k).ic} Picked up. Place it somewhere else.`)}
+   else if(pk&&pk.c.b){const arr=blocks(sp);arr.splice(arr.indexOf(pk.c.b),1);bump();addBlocks(pk.c.b[3],1);SND.crack();const[X,Y]=isoXY(pk.c.vx,pk.c.vy,pk.c.z,Z);burst(['#c9c3b5','#8a7a66'],10,r.left+X+lastO.ox,r.top+Y+lastO.oy+16*Z)}else return;
+   save();below();header();return}
+  if(tg&&tg.kind==='item'&&tg.p.k==='door'&&!selItem){tg.p.o=doorOri(tg.p)==='x'?'y':'x';SND.place();save();toast('🚪 Door turned');return}
+  if(tg&&tg.kind==='item'&&!selItem){toast('That\'s a memory item. Right-click (or Erase) picks it up to move it.');return}
+  if(!pk)return;
+  if(selItem){const c=itemCell(pk);if(!c){toast('Items sit where you can stand: click a floor tile or the top of a solid stack.');return}const{x,y}=c;
+   if(itemAt(x,y)){toast('Something is already there.');return}if(x===pl.x&&y===pl.y){toast('Your hero is standing there.');return}if(placed(selItem)){selItem=null;below();return}
+   m.pl.push({k:selItem,w:sp,x,y});SND.place();const[sx,sy]=standPt(x,y,lastO);burst(['#ffe48a','#fff','#9fd8ff'],24,r.left+sx,r.top+sy-20*Z);const f=info(selItem);toast(selItem==='door'?'🚪 Door placed. It turns to sit in your wall; click it to flip.':`${f.ic} Placed in ${esc(spaceName(sp))} as stop #${routeList().findIndex(p=>p.k===selItem)+1}`);selItem=null;save();checkMedals();below();header();return}
+  const t=nbr(pk),bad=canPlace(t);if(bad){toast(bad);return}
+  if(!(S.inv[sel]>0)){toast('No '+(VOX.MAT[sel]?VOX.MAT[sel].n:sel)+' left. Earn or buy more.');return}
+  blocks(sp).push([t.x,t.y,t.z,sel]);bump();S.inv[sel]--;SND.place();checkMedals();save();below()}
  // keyboard
  function holdDir(){const on={};for(const k in keys)if(KMAP[k])on[KMAP[k]]=1;const v=(on.up?1:0)-(on.down?1:0),h=(on.right?1:0)-(on.left?1:0);if(v>0&&h>0)return'ur';if(v>0&&h<0)return'ul';if(v<0&&h>0)return'dr';if(v<0&&h<0)return'dl';if(v>0)return'up';if(v<0)return'down';if(h>0)return'right';if(h<0)return'left';return null}
  addEventListener('keydown',e=>{if(curTab!=='home'||mode!=='walk'||!cv||!cv.isConnected||BATTLE.open||$('#modal').classList.contains('on')||$('#bookView')||$('#isle').classList.contains('on'))return;if(e.target.matches&&e.target.matches('input,textarea,select'))return;const k=e.key.toLowerCase();
   if(KMAP[k]){e.preventDefault();if(tour)stopTour('Route paused. Press 🧭 to start again.');path=[];pend=null;if(!keys[k]){keys[k]=1;const hd=holdDir();if(hd){tryMove(hd);lastStep=performance.now()}}}else if(k===' '||k==='e'||k==='enter'){e.preventDefault();act()}});
  addEventListener('keyup',e=>{delete keys[e.key.toLowerCase()]});
  addEventListener('blur',()=>{keys={}});
- return{render,check,get dbg(){return{sp,mode,pl:pl.x+','+pl.y,items:M().pl.length,tour:!!tour}},_t:{frame:t=>loop(t),pagesOwned,allOwned,routeList,enterSpace,goUse,station,startTour,setMode:m=>{mode=m},sel:k=>{selItem=k},clickAt:(x,y)=>{const o=lastO;const[sx,sy]=standPt(x,y,o);const r=cv.getBoundingClientRect();click({clientX:r.left+sx,clientY:r.top+sy})}}};
+ return{render,check,get dbg(){return{sp,mode,pl:pl.x+','+pl.y,items:M().pl.length,tour:!!tour}},_t:{frame:t=>loop(t),pagesOwned,allOwned,routeList,enterSpace,goUse,station,startTour,setMode:m=>{mode=m},sel:k=>{selItem=k},faceClick:(x,y,z,f,btn)=>{const o=lastO;const[vx,vy]=rp(x,y);const[X,Y]=isoXY(vx,vy,z,Z);const r=cv.getBoundingClientRect();const off=f==='top'?[0,8]:f==='left'?[-8,20]:[8,20];mouse={x:X+o.ox+off[0]*Z,y:Y+o.oy+off[1]*Z};click({clientX:r.left+mouse.x,clientY:r.top+mouse.y,button:btn||0})},roofs:v=>{roofs=v},hover:(x,y,z,f)=>{const o=lastO;const[vx,vy]=rp(x,y);const[X,Y]=isoXY(vx,vy,z,Z);const off=f==='top'?[0,8]:f==='left'?[-8,20]:[8,20];mouse={x:X+o.ox+off[0]*Z,y:Y+o.oy+off[1]*Z}},put:(x,y)=>{pl.x=pl.fx=x;pl.y=pl.fy=y},clickAt:(x,y)=>{const o=lastO;const[sx,sy]=standPt(x,y,o);const r=cv.getBoundingClientRect();click({clientX:r.left+sx,clientY:r.top+sy})}}};
 })();
 
 // ===== Pixel-art menu icons (voxel style) =====
