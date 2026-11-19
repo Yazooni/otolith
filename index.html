@@ -205,6 +205,16 @@ table.lb tr.me{background:#fff7d1}
 input[type=text],input[type=password],select{font:inherit;border:3px solid var(--line);border-radius:8px;padding:8px 10px;font-weight:700}
 #fxLayer{position:fixed;inset:0;pointer-events:none;z-index:20}
 #homeCv{width:100%;height:min(66vh,620px);border:3px solid var(--line);border-radius:10px;background:#9fd8ff;touch-action:none}
+.hmWrap{position:relative}
+.hmPad{position:absolute;right:10px;bottom:10px;display:grid;grid-template-columns:44px 44px 44px;grid-template-rows:44px 44px 44px;gap:3px;opacity:.85}
+.hmPad button{background:rgba(255,250,240,.9);border:3px solid #0d1226;border-radius:9px;font-size:16px;font-weight:900}.hmPad .dg{opacity:.6;font-size:12px}
+@media (hover:hover) and (pointer:fine){.hmPad{opacity:.45}.hmPad:hover{opacity:.9}}
+.hmTip{position:absolute;left:10px;top:10px;background:rgba(20,24,46,.9);color:#ffe48a;border:2px solid #0d1226;border-radius:8px;padding:6px 10px;font-weight:800;font-size:13px;display:none;pointer-events:none;max-width:70%}
+.mis{display:flex;gap:6px;flex-wrap:wrap}
+.mi{border:3px solid var(--line);border-radius:8px;background:#fffaf0;padding:5px 8px;display:flex;flex-direction:column;align-items:center;font-size:12px;font-weight:800;min-width:56px;cursor:pointer}
+.mi .ic{font-size:20px;line-height:1.1}.mi small{font-size:10px;color:#1f7a4a}
+.mi.on{background:#ffd34d;transform:translateY(-2px)}.mi.lock{opacity:.45;cursor:not-allowed;background:#eee}.mi.pl{background:#e3f4e6}
+#hmLect{font:inherit;font-weight:700;padding:4px 6px;border:2px solid var(--line);border-radius:6px;max-width:100%}
 .pal{display:flex;gap:6px;flex-wrap:wrap}
 .pal button{border:3px solid var(--line);border-radius:8px;background:#fff;padding:4px;display:flex;flex-direction:column;align-items:center;font-size:11px;font-weight:800;min-width:58px}
 .pal button.on{background:#ffd34d}
@@ -812,7 +822,7 @@ function hud(){$('#hShards').textContent=S.sh;$('#hLv').textContent=level();$('#
 // ---------- record answer ----------
 function record(id,correct){const s=S.qs[id]||(S.qs[id]={n:0,c:0,l:0,t:0});const first=!s.n;s.n++;if(correct)s.c++;s.l=correct?1:0;s.t=Date.now();S.st.ans++;if(correct){S.st.cor++;S.st.combo++;S.st.best=Math.max(S.st.best,S.st.combo)}else S.st.combo=0;touchStreak();
  if(S.st.ans%20===0&&window.CLOUD&&!CLOUD.uid)toast('💾 Not signed in: progress is browser-only. Use Progress &amp; Saves → Save code.',4200);
- save();return first}
+ save();if(typeof HOME!=='undefined'&&HOME.check)HOME.check();return first}
 // ---------- question picking ----------
 function shuffle(a,r){r=r||Math.random;for(let i=a.length-1;i>0;i--){const j=(r()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]]}return a}
 function pickQ(pool){// prefer unseen official, unseen, missed, oldest
@@ -1534,6 +1544,293 @@ const NOTESUI=(()=>{
  return{render,openLect,close};
 })();
 
+// ===== HOME = MIND PALACE: your island + house rooms. Walk them, build them, and place the lecture
+// pages, tomes and trophies you earn as memory stations (method of loci). Replaces the old block-only builder.
+const HOME=(()=>{
+ const G=12,RN=9,MAXR=6,ROOM_COST=200;
+ const BASE=['grass','dirt','stone','cobble','plank','log','leaves','sand','pine','snow','sandstone','redsand','moss','brick'];
+ const PALS={wool:{n:'Wool Pack',p:300,m:['w_red','w_blue','w_yel','w_wht','w_blk','w_pur','w_pnk','w_org','w_grn','w_cyn']},glow:{n:'Glass & Lanterns',p:250,m:['glass','lantern','water','ice']},royal:{n:'Royal Pack',p:600,m:['gold','quartz','iron','obsid']},gem:{n:'Gem Pack',p:500,m:['crystal','amethyst','bloom','coral','mush','myc','bone','basalt']}};
+ const DIRS={up:[-1,-1],down:[1,1],left:[-1,1],right:[1,-1],ur:[0,-1],ul:[-1,0],dr:[1,0],dl:[0,1]};
+ const KMAP={arrowup:'up',w:'up',arrowdown:'down',s:'down',arrowleft:'left',a:'left',arrowright:'right',d:'right'};
+ let mode='walk',sp='o',sel='grass',selItem=null,erase=false,rot=0,cv=null,ctx=null,Z=2,raf=0,showRoute=true,lect='';
+ let pl={x:G-3,y:G-2,fx:G-3,fy:G-2,dir:'down'},pet={fx:G-3,fy:G-2},path=[],pend=null,keys={},lastStep=0,mouse=null,hov=null,parts=[],tour=null,lastO=null,heroC={k:'',c:{}};
+
+ // ---------- state ----------
+ function M(){if(!S.mp)S.mp={};const m=S.mp;m.pl=m.pl||[];m.rooms=m.rooms&&m.rooms.length?m.rooms:[{n:'Main Hall',b:[],f:'plank',w:'brick'}];m.signs=m.signs||{};m.sn=m.sn||0;m.rv=m.rv||{};m.route=m.route||'';return m}
+ const blocks=w=>w==='o'?S.home:M().rooms[w].b;
+ const N=w=>w==='o'?G:RN;
+ const itemsIn=w=>M().pl.filter(p=>p.w===w);
+ function topZ(x,y,w){w=w===undefined?sp:w;let z=0;blocks(w).forEach(b=>{if(b[0]===x&&b[1]===y)z=Math.max(z,b[2])});return z}
+ function itemAt(x,y,w){w=w===undefined?sp:w;return M().pl.find(p=>p.w===w&&p.x===x&&p.y===y)}
+ const reg=m=>REGIONS.find(r=>r.id===(LMAP[m]||{}).r)||{col:'#3b6fd8',n:''};
+ const spaceName=w=>w==='o'?'Outside':(M().rooms[w]||{}).n||'Room';
+
+ // ---------- collectibles: derived from progress, so earlier progress counts ----------
+ function uniq(m){return LMAP[m].qs.filter(id=>!LOWYIELD.has(id)&&S.qs[id]&&S.qs[id].c>0).length}
+ function target(m){return Math.max(1,Math.ceil(.7*lectStats(m).n))}
+ function pagesOwned(m){const P=(NOTES[m]||[]).length;if(!P||!LMAP[m].qs.length)return 0;return Math.min(P,Math.ceil(uniq(m)*P/target(m)))}
+ function pageNeed(m,j){const P=NOTES[m].length;return Math.max(0,Math.ceil(j*target(m)/P)+1-uniq(m))}// correct answers still needed for page j (0-based)
+ function owned(k){const p=k.split('|');if(p[0]==='pg')return +p[2]<pagesOwned(p[1]);if(p[0]==='tm')return stars(p[1])>=2;if(p[0]==='tr')return!!S.boss[p[1]];if(p[0]==='sg')return!!M().signs[p[1]];return k==='door'}
+ function allOwned(){const o=['door'];LECTS.forEach(L=>{const n=pagesOwned(L.id);for(let j=0;j<n;j++)o.push('pg|'+L.id+'|'+j);if(stars(L.id)>=2)o.push('tm|'+L.id);if(S.boss[L.id])o.push('tr|'+L.id)});Object.keys(M().signs).forEach(i=>o.push('sg|'+i));return o}
+ const placed=k=>M().pl.some(p=>p.k===k);
+ function info(k){const p=k.split('|'),L=LMAP[p[1]];
+  if(p[0]==='pg'){const n=NOTES[p[1]][+p[2]];return{ic:'📜',kind:'Page',t:n.h,sub:`${L.id} ${L.short} · page ${+p[2]+1}/${NOTES[p[1]].length}`,m:p[1]}}
+  if(p[0]==='tm')return{ic:'📕',kind:'Tome',t:`${L.id} ${L.short}`,sub:'All notes for this lecture',m:p[1]};
+  if(p[0]==='tr')return{ic:'🏆',kind:'Trophy',t:`${L.id} ${L.short}`,sub:stars(p[1])===3?'Gold: island mastered':'Silver: boss defeated',m:p[1]};
+  if(p[0]==='sg')return{ic:'🪧',kind:'Sign',t:M().signs[p[1]]||'',sub:'Your own memory hook'};
+  return{ic:'🚪',kind:'Door',t:'House door',sub:'Leads into '+M().rooms[0].n}}
+ // announce new items (called after every answer and medal check)
+ function check(){const m=M();const own=allOwned().filter(k=>k!=='door'&&!k.startsWith('sg'));if(!m.got){m.got={};own.forEach(k=>m.got[k]=1);if(own.length)setTimeout(()=>toast(`🏛 Your Mind Palace has <b>${own.length}</b> memory items waiting. Open Mind Palace to place them.`,4200),1500);return}
+  const fresh=own.filter(k=>!m.got[k]);if(!fresh.length)return;fresh.forEach(k=>m.got[k]=1);
+  fresh.slice(0,2).forEach((k,i)=>{const f=info(k);setTimeout(()=>{toast(`${f.ic} <b>New ${f.kind}:</b> ${esc(f.t.length>48?f.t.slice(0,46)+'…':f.t)}<br><span style="opacity:.8">Place it in your Mind Palace</span>`,3800);SND.milestone&&SND.milestone()},400+i*900)});
+  if(fresh.length>2)setTimeout(()=>toast(`+${fresh.length-2} more memory items`),2400);save()}
+
+ // ---------- spaces + doors ----------
+ function doors(w){const out=[],m=M();if(w==='o'){const d=m.pl.find(p=>p.k==='door');if(d)out.push({x:d.x,y:d.y,to:0,face:'o'})}
+  else{out.push({x:1,y:-1,to:w===0?'o':w-1,face:'y'});if(m.rooms[w+1])out.push({x:-1,y:RN-2,to:w+1,face:'x'})}return out}
+ const doorAt=(x,y)=>doors(sp).find(d=>d.x===x&&d.y===y);
+ const order=w=>w==='o'?-1:w;
+ function canWalk(x,y,fz){const n=N(sp);if(x<0||y<0||x>=n||y>=n)return false;if(itemAt(x,y))return false;return Math.abs(topZ(x,y)-fz)<=1}
+ function diagOK(x,y,dx,dy,z){if(Math.abs(dx)+Math.abs(dy)<2)return true;return canWalk(x+dx,y,z)||canWalk(x,y+dy,z)}
+ function nearestFree(x,y){const n=N(sp),seen={},q=[[x,y]];while(q.length){const[a,b]=q.shift();const k=a+','+b;if(seen[k])continue;seen[k]=1;if(a>=0&&b>=0&&a<n&&b<n&&!itemAt(a,b)&&!doorAt(a,b))return[a,b];[[1,0],[0,1],[-1,0],[0,-1]].forEach(([dx,dy])=>{const nx=a+dx,ny=b+dy;if(nx>=-1&&ny>=-1&&nx<=n&&ny<=n)q.push([nx,ny])})}return[0,0]}
+ function enterSpace(to,from){const f=from===undefined?sp:from;sp=to;rot=to==='o'?rot:0;let s;
+  if(to==='o'){const d=M().pl.find(p=>p.k==='door');s=d?nearestFree(d.x+1,d.y+1):[G-3,G-2]}
+  else if(f==='o'||order(f)<to)s=[1,0];else s=[0,RN-2];
+  pl.x=pl.fx=pet.fx=s[0];pl.y=pl.fy=pet.fy=s[1];pl.dir='down';path=[];pend=null;SND.place();
+  for(let i=0;i<14;i++)parts.push({k:'spark',x:pl.x+(Math.random()-.5),y:pl.y+(Math.random()-.5),z:topZ(pl.x,pl.y),life:30+Math.random()*20,c:['#ffe48a','#fff','#9fd8ff'][i%3]});
+  if(cv)header();}
+
+ // ---------- review stations ----------
+ function due(k){const r=M().rv[k];if(k==='door'||k.startsWith('sg'))return false;return!r||r.d!==today()||!r.ok}
+ function reward(k,ok){const m=M();const r=m.rv[k]||{n:0};const first=r.d!==today();m.rv[k]={d:today(),ok:ok?1:0,n:(r.n||0)+1};if(first){grant(ok?5:2,ok?8:4);const b=cv&&cv.getBoundingClientRect();if(b){floatText('+'+(ok?5:2)+' <i class="gem"></i>',b.left+b.width/2,b.top+b.height/2-40,'#7dffb0',20);flyShards(b.left+b.width/2,b.top+b.height/2,ok?6:3)}}SND.ok?SND.ok(ok?2:0):SND.coin();save()}
+ function station(k,done){const f=info(k),p=k.split('|');const fin=r=>{closeModal();done&&done(r)};
+  if(p[0]==='tm'){NOTESUI.openLect(p[1]);reward(k,true);const wait=setInterval(()=>{if(!$('#bookView')){clearInterval(wait);done&&done(true)}},300);return}
+  if(p[0]==='sg'){modal(`<h3 class="px" style="font-size:12px">🪧 YOUR MEMORY HOOK</h3><div class="expl" style="font-size:17px;white-space:pre-wrap">${esc(f.t)}</div><div class="row" style="margin-top:10px"><button class="btn green" id="stNext">${done&&tour?'Next stop ▶':'Close'}</button><button class="btn gray" id="stEdit">Edit</button></div>`);
+   $('#stNext').onclick=()=>fin(null);$('#stEdit').onclick=()=>signEditor(p[1],()=>fin(null));return}
+  if(p[0]==='tr'){const L=LMAP[p[1]],s=lectStats(p[1]);const gold=stars(p[1])===3;
+   modal(`<h3 class="px" style="font-size:12px">🏆 ${gold?'GOLD':'SILVER'} TROPHY</h3><div style="font-size:15px"><b>${esc(L.id)} ${esc(L.t)}</b><br><span class="muted">${esc(L.lec)} · ${esc(L.nick||'')}</span></div>
+    <div class="expl"><span class="stars" style="font-size:20px">${starStr(stars(p[1]))}</span> · ${s.cor}/${s.n} correct right now</div>
+    <p style="margin:8px 0">Defend your title: 3 questions from this island, weakest first.</p>
+    <div class="row"><button class="btn red" id="stDef">⚔ Defend (3 questions)</button><button class="btn blue" id="stRead">📖 Read notes</button><button class="btn gray" id="stNext">${tour?'Next stop ▶':'Close'}</button></div>`);
+   $('#stNext').onclick=()=>fin(null);$('#stRead').onclick=()=>{closeModal();NOTESUI.openLect(p[1])};
+   $('#stDef').onclick=()=>{closeModal();const pool=L.qs.filter(id=>!QMAP[id].sa&&!LOWYIELD.has(id));const ids=shuffle(pool.slice()).sort((a,b)=>((S.qs[a]&&S.qs[a].l)?1:0)-((S.qs[b]&&S.qs[b].l)?1:0)).slice(0,3);
+    BATTLE.run({kind:'mob',mob:(MOBS.REGION_MOBS[L.r]||['slime'])[0],lect:L,qids:ids,onEnd:res=>{reward(k,res.right>=2);done&&done(res.right>=2)}})};return}
+  // page: recall first, then reveal
+  const n=NOTES[p[1]][+p[2]];const L=LMAP[p[1]];const last=M().rv[k];
+  modal(`<div class="row" style="justify-content:space-between"><h3 class="px" style="font-size:12px;margin:0">📜 MEMORY PAGE</h3><span class="muted">${esc(spaceName(sp))}${tour?` · stop ${tour.i+1}/${tour.list.length}`:''}</span></div>
+   <div class="muted" style="margin-top:6px">${esc(L.id)} ${esc(L.short)} · page ${+p[2]+1} of ${NOTES[p[1]].length}${last?` · last time: ${last.ok?'remembered ✓':'fuzzy'}`:''}</div>
+   <div style="font-size:19px;font-weight:900;margin:8px 0">${esc(n.h)}</div>
+   <div id="stRecall"><p style="margin:4px 0 6px"><b>Recall first.</b> Picture this spot, then say or type everything you remember about this page.</p>
+   <textarea class="saInput" id="stTxt" placeholder="What's on this page? (optional: thinking it counts too)"></textarea>
+   <div class="row" style="margin-top:8px"><button class="btn blue" id="stRev">Reveal page</button>${tour?'<button class="btn gray" id="stSkip">Skip</button>':''}</div></div><div id="stBody"></div>`);
+  if($('#stSkip'))$('#stSkip').onclick=()=>fin(null);
+  $('#stRev').onclick=()=>{$('#stRecall').querySelector('.row').remove();$('#stBody').innerHTML=`<div class="expl" style="max-height:46vh;overflow:auto">${abx(n.b)}</div>
+   <div class="row" style="margin-top:10px"><button class="btn green" id="stOk">I remembered it ✓</button><button class="btn red" id="stBad">Fuzzy ✗</button></div>`;
+   const rate=ok=>{reward(k,ok);$('#stBody').querySelector('.row').innerHTML=`<span style="font-weight:900;color:${ok?'#1f7a4a':'#a2541f'}">${ok?'Locked in. ✓':'It will glow orange until you remember it.'}</span><button class="btn blue" id="stQ">⚔ Test me (1 question)</button><button class="btn gray" id="stNext">${tour?'Next stop ▶':'Close'}</button>`;
+    $('#stNext').onclick=()=>fin(ok);$('#stQ').onclick=()=>{closeModal();const q=pickQ(L.qs.filter(id=>!QMAP[id].sa));if(!q){done&&done(ok);return}BATTLE.run({kind:'mob',mob:(MOBS.REGION_MOBS[L.r]||['slime'])[0],lect:L,qids:[q],onEnd:()=>{done&&done(ok)}})}};
+   $('#stOk').onclick=()=>rate(true);$('#stBad').onclick=()=>rate(false)}}
+ function signEditor(id,after){const cur=id?M().signs[id]:'';modal(`<h3 class="px" style="font-size:12px">🪧 ${id?'EDIT':'NEW'} MEMORY SIGN</h3><p style="margin:4px 0 8px">Write your own hook: a mnemonic, a weird image, a "this room = ear" label. Vivid and personal sticks best.</p>
+  <textarea class="saInput" id="sgTxt" maxlength="160" placeholder="e.g. Tonsil room: Centor = 4 points, 'FEAT' (Fever, Exudate, Adenopathy, no cough)">${esc(cur||'')}</textarea>
+  <div class="row" style="margin-top:8px"><button class="btn green" id="sgOk">Save sign</button><button class="btn gray" id="sgX">Cancel</button></div>`);
+  $('#sgX').onclick=()=>{closeModal();after&&after()};$('#sgOk').onclick=()=>{const t=$('#sgTxt').value.trim().slice(0,160);if(!t){toast('Write something first');return}const m=M();let i=id;if(!i){i=String(++m.sn);selItem='sg|'+i;mode='build';erase=false}m.signs[i]=t;save();closeModal();after?after():render()}}
+
+ // ---------- guided route (method of loci walk) ----------
+ function routeList(){const sps=['o'];M().rooms.forEach((_,i)=>sps.push(i));const L=[];sps.forEach(w=>itemsIn(w).forEach(p=>{if(p.k!=='door')L.push(p)}));return L}
+ function startTour(){const list=routeList();if(list.length<2){toast('Place at least 2 memory items to walk a route.');return}tour={list,i:0,ok:0,n:0};header();SND.milestone&&SND.milestone();stepTour()}
+ function stopTour(msg){tour=null;path=[];pend=null;header();if(msg)toast(msg)}
+ function stepTour(){if(!tour)return;if(tour.i>=tour.list.length){const t=tour;tour=null;header();const m=M();bigBanner('ROUTE WALKED!',`${t.ok}/${t.n} pages remembered`);burst(['#ffe48a','#7dffb0','#9fd8ff'],70);
+   if(m.route!==today()&&t.list.length>=3){m.route=today();m.routes=(m.routes||0)+1;grant(25,30);toast('🧭 Daily route bonus +25 <i class="gem"></i>',3200)}save();checkMedals();return}
+  const p=tour.list[tour.i];if(!M().pl.includes(p)){tour.i++;return stepTour()}
+  if(p.w!==sp){const fwd=order(p.w)>order(sp);const d=doors(sp).find(d=>fwd?order(d.to)>order(sp):order(d.to)<order(sp));if(!d){stopTour('Route blocked: no door here.');return}goUse({kind:'door',d,x:d.x,y:d.y});return}
+  goUse({kind:'item',p,x:p.x,y:p.y})}
+
+ // ---------- movement ----------
+ function g2v(dx,dy){return rot===0?[dx,dy]:rot===1?[-dy,dx]:rot===2?[-dx,-dy]:[dy,-dx]}
+ function v2g(dx,dy){return rot===0?[dx,dy]:rot===1?[dy,-dx]:rot===2?[-dx,-dy]:[-dy,dx]}
+ const dirOfV=(dx,dy)=>Object.keys(DIRS).find(d=>DIRS[d][0]===dx&&DIRS[d][1]===dy);
+ function stepG(gdx,gdy){// move in grid space
+  const[vx,vy]=g2v(gdx,gdy);pl.dir=dirOfV(vx,vy)||pl.dir;const nx=pl.x+gdx,ny=pl.y+gdy;const z=topZ(pl.x,pl.y);
+  const d=doorAt(nx,ny);if(d){enterSpace(d.to);return'door'}
+  const it=itemAt(nx,ny);if(it){if(it.k==='door'){enterSpace(0);return'door'}use(it);return'item'}
+  if(canWalk(nx,ny,z)&&diagOK(pl.x,pl.y,gdx,gdy,z)){pl.x=nx;pl.y=ny;SND.step();for(let k=0;k<3;k++)parts.push({k:'dust',x:pl.fx+(Math.random()-.5)*.4,y:pl.fy+(Math.random()-.5)*.4,z:topZ(nx,ny),life:24,vz:.4+Math.random()*.4,dx:(Math.random()-.5)*.6});return'move'}
+  return'blocked'}
+ function tryMove(vd){const[vx,vy]=DIRS[vd];const[gx,gy]=v2g(vx,vy);return stepG(gx,gy)}
+ function use(it){if(it.k==='door'){enterSpace(0);return}path=[];const t=tour;if(t)t.wait=1;station(it.k,ok=>{if(t&&tour===t&&t.wait){t.wait=0;if(!it.k.startsWith('sg')&&ok!==null&&ok!==undefined){t.n++;if(ok)t.ok++}t.i++;setTimeout(stepTour,250)}})}
+ function act(){const[vx,vy]=DIRS[pl.dir];const[gx,gy]=v2g(vx,vy);const nx=pl.x+gx,ny=pl.y+gy;const d=doorAt(nx,ny),it=itemAt(nx,ny);if(d)enterSpace(d.to);else if(it)use(it);else toast('Face a memory item or a door and press Space.')}
+ function bfs(tx,ty,adj){const prev={},q=[[pl.x,pl.y]],key=(x,y)=>x+','+y;prev[key(pl.x,pl.y)]=null;let found=null;
+  while(q.length){const[x,y]=q.shift();if(adj?Math.max(Math.abs(x-tx),Math.abs(y-ty))===1:(x===tx&&y===ty)){found=[x,y];break}
+   for(const d in DIRS){const[dx,dy]=DIRS[d];const nx=x+dx,ny=y+dy;if(prev[key(nx,ny)]!==undefined)continue;const z=topZ(x,y);if(!canWalk(nx,ny,z)||!diagOK(x,y,dx,dy,z))continue;prev[key(nx,ny)]=[x,y,[dx,dy]];q.push([nx,ny])}}
+  if(!found)return null;const steps=[];let k=key(found[0],found[1]);while(prev[k]){const[px,py,g]=prev[k];steps.unshift(g);k=key(px,py)}return{steps,end:found}}
+ function goUse(tg){const dx=tg.x-pl.x,dy=tg.y-pl.y;
+  // doors on walls must be approached straight-on
+  const straight=tg.kind==='door';
+  if(Math.max(Math.abs(dx),Math.abs(dy))===1&&(!straight||Math.abs(dx)+Math.abs(dy)===1)){path=[];pend=null;arrive(tg);return}
+  let r=null;if(straight){const n=[[1,0],[-1,0],[0,1],[0,-1]].map(([a,b])=>[tg.x+a,tg.y+b]).filter(([a,b])=>canWalk(a,b,topZ(a,b))||(a===pl.x&&b===pl.y));for(const[a,b]of n){const rr=(a===pl.x&&b===pl.y)?{steps:[],end:[a,b]}:bfs(a,b,false);if(rr&&(!r||rr.steps.length<r.steps.length))r=rr}}else r=bfs(tg.x,tg.y,true);
+  if(!r){toast('Can\'t reach that from here. Clear a path or try another spot.');if(tour)stopTour();return}path=r.steps.slice();pend=tg;if(!path.length){const t=pend;pend=null;arrive(t)}}
+ function arrive(tg){stepG(tg.x-pl.x,tg.y-pl.y);if(tg.kind==='door'&&tour)setTimeout(stepTour,350)}
+
+ // ---------- render: page ----------
+ function market(){const set=new Set(BASE);for(const k in PALS)if(S.own.pal[k])PALS[k].m.forEach(m=>set.add(m));return[...set]}
+ function header(){const h=$('#hmHead');if(!h)return;const m=M();const nPl=m.pl.filter(p=>p.k!=='door').length,nOwn=allOwned().filter(k=>k!=='door').length;const dueN=m.pl.filter(p=>due(p.k)).length;
+  h.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+   <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ${mode==='walk'?'green':'gray'}" id="hmWalk">🚶 Walk</button><button class="btn ${mode==='build'?'blue':'gray'}" id="hmBuild">🔨 Build</button>
+    <span class="chip on" title="Where you are">📍 ${esc(spaceName(sp))}</span><span class="muted">${nPl}/${nOwn} items placed${dueN?` · <b style="color:#c46f3c">${dueN} to review today</b>`:''}</span></div>
+   <div class="row" style="gap:6px;flex-wrap:wrap">${tour?`<span class="chip on">🧭 Stop ${Math.min(tour.i+1,tour.list.length)}/${tour.list.length}</span><button class="btn red" id="hmStop">Stop route</button>`:`<button class="btn" id="hmTour" style="background:#ffd34d">🧭 Walk my route</button>`}
+    <button class="btn gray" id="hmNums">${showRoute?'Hide':'Show'} route #s</button>${sp==='o'?`<button class="btn gray" id="hmRot">Rotate ⟳</button>`:''}<button class="btn gray" id="hmHelp">?</button></div></div>`;
+  $('#hmWalk').onclick=()=>{mode='walk';erase=false;render()};$('#hmBuild').onclick=()=>{if(tour)stopTour();mode='build';render()};
+  if($('#hmTour'))$('#hmTour').onclick=()=>{if(mode!=='walk'){mode='walk';render()}startTour()};if($('#hmStop'))$('#hmStop').onclick=()=>stopTour('Route stopped.');
+  $('#hmNums').onclick=()=>{showRoute=!showRoute;header()};if($('#hmRot'))$('#hmRot').onclick=()=>{rot=(rot+1)%4};$('#hmHelp').onclick=help}
+ function help(){modal(`<h3 class="px" style="font-size:12px">🏛 YOUR MIND PALACE</h3><div style="font-size:15px;line-height:1.5">
+  <p>Memory champions use the <b>method of loci</b>: put each fact in a specific <b>place</b> along a route you know, then walk that route in your head. Places are much easier to remember than lists.</p>
+  <p>📜 <b>Pages</b>: every lecture's notes become pages. You earn them by answering that island's questions correctly.<br>📕 <b>Tome</b>: earned at ★★ on an island. 🏆 <b>Trophy</b>: earned when you beat the island's boss (gold at ★★★).<br>🪧 <b>Signs</b>: free. Write your own mnemonic and plant it anywhere.</p>
+  <p>🔨 <b>Build</b>: stack blocks, build your house, and place items. The 🚪 door leads into your house; add more rooms as you go.<br>🚶 <b>Walk</b>: move with WASD/arrows or click. Walk into an item (or press Space) to <b>recall it first, then reveal</b>.<br>🧭 <b>Walk my route</b>: your hero tours every item in the order you placed them. Same route every time = stronger memory.</p>
+  <p><b>Tips:</b> give each region its own room (Ear room, Nose room…), put pages in lecture order along the walls, and put a sign at each doorway.<br>Items that glow need review today. Orange means it was fuzzy last time.</p></div>
+  <button class="btn green" onclick="closeModal()">Got it</button>`);M().tut=1;save()}
+ function render(){const host=$('#p-home');M();if(!itemsIn('o').some(p=>p.k==='door'))autoDoor();
+  host.innerHTML=`<div class="card" id="hmHead"></div><div class="hmWrap"><canvas id="homeCv"></canvas>${mode==='walk'?`<div class="hmPad">${['ul','up','ur','left','act','right','dl','down','dr'].map(d=>`<button data-d="${d}" class="${d.length===2&&d!=='up'?'dg':''}">${{ul:'↖',up:'▲',ur:'↗',left:'◀',act:'●',right:'▶',dl:'↙',down:'▼',dr:'↘'}[d]}</button>`).join('')}</div>`:''}<div class="hmTip" id="hmTip"></div></div><div id="hmBelow"></div>`;
+  header();below();cv=$('#homeCv');ctx=cv.getContext('2d');
+  cv.onpointerdown=click;cv.onpointermove=e=>{const r=cv.getBoundingClientRect();mouse={x:e.clientX-r.left,y:e.clientY-r.top}};cv.onpointerleave=()=>{mouse=null};
+  host.querySelectorAll('.hmPad button').forEach(b=>{let iv=null;const d=b.dataset.d;const go=()=>{d==='act'?act():tryMove(d)};b.addEventListener('pointerdown',e=>{e.preventDefault();path=[];pend=null;go();if(d!=='act')iv=setInterval(go,200)});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>clearInterval(iv)))});
+  cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);if(!M().tut)setTimeout(help,300)}
+ function autoDoor(){for(const[x,y]of[[5,3],[6,3],[4,3],[5,4],[3,3]])if(!itemAt(x,y,'o')){M().pl.push({k:'door',w:'o',x,y});save();return}}
+ function below(){const host=$('#hmBelow');if(!host)return;if(mode==='walk'){const m=M();const dueL=m.pl.filter(p=>due(p.k));
+   host.innerHTML=`<div class="card" style="margin-top:12px"><b>Walking.</b> <span class="muted">WASD/arrows or click to move · walk into an item or press Space to review it · walk into a door to change rooms.</span>
+   ${dueL.length?`<div style="margin-top:6px">✨ <b>${dueL.length}</b> station${dueL.length>1?'s':''} to review today: ${dueL.slice(0,6).map(p=>{const f=info(p.k);return`<span class="chip" title="${esc(f.t)}">${f.ic} ${esc(f.kind==='Page'?f.sub.split(' · ')[0]+' p'+(+p.k.split('|')[2]+1):f.t)} · ${esc(spaceName(p.w))}</span>`}).join(' ')}${dueL.length>6?' …':''}</div>`:m.pl.length>1?'<div style="margin-top:6px">✓ Every station reviewed today. Nice.</div>':''}
+   ${allOwned().filter(k=>k!=='door'&&!placed(k)).length?`<div style="margin-top:6px">📦 You have <b>${allOwned().filter(k=>k!=='door'&&!placed(k)).length}</b> unplaced memory items. Switch to <b>🔨 Build</b> to place them.</div>`:''}</div>`;return}
+  const inv=Object.keys(S.inv).filter(k=>S.inv[k]>0);const m=M();
+  const lectsWith=LECTS.filter(L=>L.qs.length&&(NOTES[L.id]||[]).length);if(!lect)lect=(lectsWith.find(L=>pagesOwned(L.id)>0&&!placed('pg|'+L.id+'|0'))||lectsWith.find(L=>pagesOwned(L.id)>0)||lectsWith[0]).id;
+  const L=LMAP[lect],P=(NOTES[lect]||[]).length,own=pagesOwned(lect);
+  const itBtn=(k,lock,lab,tip)=>`<button class="mi ${selItem===k?'on':''} ${lock?'lock':''} ${placed(k)?'pl':''}" ${lock?'disabled':''} data-it="${k}" title="${esc(tip||'')}"><span class="ic">${lock?'🔒':info(k).ic}</span>${lab}${placed(k)?'<small>placed ✓</small>':''}</button>`;
+  let pages='';for(let j=0;j<P;j++){const k='pg|'+lect+'|'+j;const lock=j>=own;pages+=itBtn(k,lock,'p'+(j+1),lock?`Answer ${pageNeed(lect,j)} more ${L.id} questions correctly`:NOTES[lect][j].h)}
+  host.innerHTML=`<div class="card" style="margin-top:12px"><div class="row" style="justify-content:space-between"><div><b>Rooms</b> <span class="muted">Build mode lets you jump between spaces. In Walk mode you go through the doors.</span></div>
+    <div class="row" style="gap:6px">${['o',...m.rooms.map((_,i)=>i)].map(w=>`<button class="chip ${sp===w?'on':''}" data-sp="${w}">${w==='o'?'🏝 Outside':'🚪 '+esc(m.rooms[w].n)}</button>`).join('')}
+    ${sp!=='o'?`<button class="btn gray" id="hmRen">Rename</button>`:''}${m.rooms.length<MAXR?`<button class="btn blue" id="hmAddR">+ Room · ${ROOM_COST} <i class="gem"></i></button>`:''}</div></div>
+    ${sp!=='o'?`<div class="row" style="margin-top:8px;gap:6px"><span class="muted">Selected block (${esc(VOX.MAT[sel]?VOX.MAT[sel].n:sel)}) as:</span><button class="btn gray" id="hmFloor">Floor</button><button class="btn gray" id="hmWall">Walls</button><span class="muted">(free)</span></div>`:''}</div>
+   <div class="card"><div class="row" style="justify-content:space-between"><div><b>Memory items</b> <span class="muted">pick one, then click a tile to place it. Erase picks items back up.</span></div><button class="btn ${erase?'red':'gray'}" id="hmErase">${erase?'Erasing ✗':'Erase mode'}</button></div>
+    <div class="row" style="margin-top:8px;gap:6px"><label class="muted">Lecture</label><select id="hmLect">${lectsWith.map(X=>`<option value="${X.id}" ${X.id===lect?'selected':''}>${X.id} ${esc(X.short)} · ${pagesOwned(X.id)}/${(NOTES[X.id]||[]).length} pages${stars(X.id)>=2?' · 📕':''}${S.boss[X.id]?' · 🏆':''}</option>`).join('')}</select></div>
+    <div class="mis" style="margin-top:8px">${pages}${itBtn('tm|'+lect,stars(lect)<2,'Tome',stars(lect)<2?'Reach ★★ on this island':'All notes')}${itBtn('tr|'+lect,!S.boss[lect],'Trophy',!S.boss[lect]?'Beat this island\'s boss':'')}</div>
+    <div class="mis" style="margin-top:8px">${itBtn('door',false,'House door','The way into your house')}${Object.keys(m.signs).map(i=>itBtn('sg|'+i,false,esc(m.signs[i].slice(0,14))+(m.signs[i].length>14?'…':''),m.signs[i])).join('')}<button class="mi" id="hmSign"><span class="ic">➕</span>New sign</button></div></div>
+   <div class="card"><b>Blocks</b> <span class="muted">(earned from correct answers and mining) · click a tile top to stack</span><div class="pal" id="hmInv" style="margin-top:8px"></div></div>
+   <div class="card"><b>Block market</b> <span class="muted">8 blocks for 10 <i class="gem"></i> · unlock packs for more blocks</span><div class="pal" id="hmMk" style="margin-top:8px"></div><div class="row" style="margin-top:10px">${Object.entries(PALS).map(([k,p])=>S.own.pal[k]?`<span class="chip on">✓ ${p.n}</span>`:`<button class="btn blue" data-pal="${k}">Unlock ${p.n} · ${p.p} <i class="gem"></i></button>`).join('')}</div></div>`;
+  $('#hmInv').innerHTML=inv.length?inv.map(m=>`<button data-m="${m}" class="${!selItem&&sel===m?'on':''}"><canvas width="32" height="32"></canvas>${esc(VOX.MAT[m].n)}<br>×${S.inv[m]}</button>`).join(''):'<span class="muted">Answer questions to earn blocks!</span>';
+  $('#hmMk').innerHTML=market().map(m=>`<button data-buy="${m}"><canvas width="32" height="32"></canvas>${esc(VOX.MAT[m].n)}<br>+8 · 10<i class="gem"></i></button>`).join('');
+  host.querySelectorAll('.pal canvas').forEach(c=>{const m=c.parentNode.dataset.m||c.parentNode.dataset.buy;const x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(VOX.cube(m),0,0,32,32)});
+  host.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{sel=b.dataset.m;selItem=null;erase=false;below()});
+  host.querySelectorAll('[data-it]').forEach(b=>b.onclick=()=>{const k=b.dataset.it;if(placed(k)){toast('Already placed. Use Erase mode on it to move it.');return}if(k==='door'&&sp!=='o'){toast('The house door goes outside.');return}selItem=k;erase=false;below()});
+  host.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{const w=b.dataset.sp==='o'?'o':+b.dataset.sp;enterSpace(w);below()});
+  host.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{if(S.sh<10){toast('Need 10 <i class="gem"></i>');return}S.sh-=10;addBlocks(b.dataset.buy,8);SND.coin();save();hud();below()});
+  host.querySelectorAll('[data-pal]').forEach(b=>b.onclick=()=>{const p=PALS[b.dataset.pal];if(S.sh<p.p){toast('Need '+p.p+' <i class="gem"></i>');return}S.sh-=p.p;S.own.pal[b.dataset.pal]=1;p.m.forEach(m=>addBlocks(m,4));SND.crate();toast('Unlocked '+p.n+'! +4 of each');save();hud();below()});
+  $('#hmLect').onchange=e=>{lect=e.target.value;below()};$('#hmErase').onclick=()=>{erase=!erase;if(erase)selItem=null;below()};$('#hmSign').onclick=()=>signEditor(null,()=>render());
+  if($('#hmAddR'))$('#hmAddR').onclick=()=>{if(S.sh<ROOM_COST){toast(`Need ${ROOM_COST} <i class="gem"></i>`);return}S.sh-=ROOM_COST;m.rooms.push({n:'Room '+(m.rooms.length+1),b:[],f:'plank',w:'brick'});hud();SND.crate();save();enterSpace(m.rooms.length-1);toast('🚪 New room! Its door is on the left wall of the room before it.');below();rename()};
+  if($('#hmRen'))$('#hmRen').onclick=rename;
+  if($('#hmFloor'))$('#hmFloor').onclick=()=>{m.rooms[sp].f=sel;save();SND.place()};if($('#hmWall'))$('#hmWall').onclick=()=>{m.rooms[sp].w=sel;save();SND.place()}}
+ function rename(){if(sp==='o')return;const r=M().rooms[sp];modal(`<h3 class="px" style="font-size:12px">NAME THIS ROOM</h3><p class="muted">Tip: name it after what lives here, like "Ear Wing" or "Chest Trauma Vault".</p><input id="rnTxt" class="saInput" style="min-height:0" maxlength="24" value="${esc(r.n)}"><div class="row" style="margin-top:8px"><button class="btn green" id="rnOk">Save</button></div>`);
+  $('#rnTxt').focus();$('#rnOk').onclick=()=>{r.n=$('#rnTxt').value.trim().slice(0,24)||r.n;save();closeModal();render()}}
+
+ // ---------- draw ----------
+ function rp(x,y){const n=N(sp);return rot===0?[x,y]:rot===1?[n-1-y,x]:rot===2?[n-1-x,n-1-y]:[y,n-1-x]}
+ function origin(r){const n=N(sp);Z=Math.max(1,Math.min(r.width/(n*32+80),r.height/(n*16+(sp==='o'?7:6)*16)));Z=Math.min(Z,3.4);return{ox:r.width/2,oy:r.height/2-n*8*Z+(sp==='o'?34:56)*Z}}
+ function heroSprite(dir,fr){const k=JSON.stringify(S.eq);if(heroC.k!==k)heroC={k,c:{}};const kk=dir+(fr%2);return heroC.c[kk]||(heroC.c[kk]=HERO.paint(S.eq,dir,fr))}
+ function glow(x,y,c,r){const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,c);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)}
+ function standPt(x,y,o){const[vx,vy]=rp(x,y);const[X,Y]=isoXY(vx,vy,topZ(x,y),Z);return[X+o.ox,Y+o.oy+8*Z]}
+ function px(x,y,u){return(a,b,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(x+a*u,y+b*u,w*u,h*u)}}
+ function drawItem(p,o,t){const[sx,sy]=standPt(p.x,p.y,o);const u=Z*1.9;const P=px(sx,sy,u);const k=p.k;const f=info(k);const col=f.m?reg(f.m).col:'#8a5a35';const bob=Math.sin(t*2+p.x+p.y)*1.2*Z;const r=M().rv[k];
+  if(k==='door'){drawHouseDoor(sx,sy,t);return}
+  // pedestal
+  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(sx,sy,8*Z,4*Z,0,0,7);ctx.fill();
+  if(k.startsWith('sg')){P(-1,-14,2,14,'#6b4226');P(-7,-20,14,9,'#c89a5a');P(-7,-20,14,1,'#e6c08a');P(-7,-12,14,1,'#8a5a35');P(-5,-17,10,1,'#5a3a1a');P(-5,-15,7,1,'#5a3a1a');return}
+  P(-5,-6,10,6,'#c9c3b5');P(-5,-6,10,1,'#efe9dc');P(-6,-7,12,2,'#e0d9c8');P(4,-6,1,6,'#9a9384');
+  if(due(k)){glow(sx,sy-14*Z,r&&!r.ok?'rgba(255,150,60,.45)':'rgba(255,240,150,.4)',24*Z)}
+  const y0=-8+bob/u;
+  if(k.startsWith('pg')){const Q=px(sx,sy+y0*u,u);Q(-5,-13,10,12,'#14213d');Q(-4,-12,8,10,'#fffaf0');Q(-4,-12,8,1,'#f3ead7');for(let i=0;i<4;i++)Q(-3,-10+i*2,i===0?6:5-(i%2),1,i===0?col:'#9aa3ad');Q(-5,-2,10,1,col)}
+  else if(k.startsWith('tm')){const Q=px(sx,sy+y0*u,u);Q(-6,-12,12,11,'#14213d');Q(-5,-11,10,9,col);Q(-5,-11,2,9,'rgba(0,0,0,.25)');Q(-1,-9,5,1,'#ffe48a');Q(-1,-6,5,1,'#ffe48a');Q(4,-11,1,9,'#fffaf0')}
+  else if(k.startsWith('tr')){const g=stars(f.m)===3;const a=g?'#ffd34d':'#d6dde6',b=g?'#c99a1a':'#9aa3ad';const Q=px(sx,sy+y0*u,u);Q(-4,-14,8,6,a);Q(-6,-13,2,3,b);Q(4,-13,2,3,b);Q(-1,-8,2,3,b);Q(-3,-5,6,2,b);Q(-2,-13,2,4,'rgba(255,255,255,.55)');if(Math.sin(t*3+p.x)>.7)glow(sx,sy+(y0-12)*u,'rgba(255,255,255,.6)',8*Z)}
+  if(r&&r.d===today()&&r.ok){P(4,-9,3,3,'#1f9e4f');P(5,-8,1,1,'#fff')}}
+ function drawHouseDoor(sx,sy,t){const u=Z*1.6,P=px(sx,sy,u);glow(sx,sy-14*Z,'rgba(255,220,140,.3)',26*Z);P(-8,-26,16,26,'#3a2614');P(-7,-25,14,25,'#7a4a26');P(-6,-24,12,23,'#8f5a2e');for(let i=0;i<3;i++)P(-6+i*4,-24,1,23,'#6b4022');P(-8,-28,16,3,'#5a3a1a');P(3,-12,2,2,'#ffd34d');P(-10,-1,20,2,'#5a3a1a')}
+ function drawWallDoor(d,o,t){// opening on an interior wall with a wooden door face
+  const[vx,vy]=[d.x,d.y];const[X0,Y0]=isoXY(vx,vy,1,Z),[X1,Y1]=isoXY(vx,vy,2,Z);const X=X0+o.ox,Ya=Y1+o.oy,Yb=Y0+o.oy;
+  ctx.beginPath();if(d.face==='y'){ctx.moveTo(X-16*Z,Ya+8*Z);ctx.lineTo(X,Ya+16*Z);ctx.lineTo(X,Yb+32*Z);ctx.lineTo(X-16*Z,Yb+24*Z)}else{ctx.moveTo(X,Ya+16*Z);ctx.lineTo(X+16*Z,Ya+8*Z);ctx.lineTo(X+16*Z,Yb+24*Z);ctx.lineTo(X,Yb+32*Z)}ctx.closePath();
+  ctx.fillStyle='#7a4a26';ctx.fill();ctx.lineWidth=2*Z;ctx.strokeStyle='#3a2614';ctx.stroke();const kx=d.face==='y'?X-4*Z:X+4*Z;ctx.fillStyle='#ffd34d';ctx.fillRect(kx-Z,Yb+18*Z,2*Z,2*Z);
+  glow(X+(d.face==='y'?-8:8)*Z,Yb+16*Z,'rgba(255,220,140,'+(.25+.1*Math.sin(t*3))+')',22*Z);
+  const lab=d.to==='o'?'↩ Outside':'→ '+M().rooms[d.to].n;ctx.font='800 '+Math.max(11,5*Z)+'px Nunito';ctx.textAlign='center';ctx.fillStyle='rgba(20,24,46,.85)';const w=ctx.measureText(lab).width+12;ctx.fillRect(X+(d.face==='y'?-8:8)*Z-w/2,Ya-6*Z,w,Math.max(15,7*Z));ctx.fillStyle='#ffe48a';ctx.fillText(lab,X+(d.face==='y'?-8:8)*Z,Ya-6*Z+Math.max(11,5*Z));ctx.textAlign='left'}
+ function torch(X,Y,t){const f=Math.sin(t*13)+Math.sin(t*7.3);ctx.fillStyle='#5a3a1a';ctx.fillRect(X-Z,Y,2*Z,7*Z);ctx.fillStyle='#ff9a2a';ctx.fillRect(X-2*Z,Y-4*Z-f*.5*Z,4*Z,4*Z);ctx.fillStyle='#ffe48a';ctx.fillRect(X-Z,Y-3*Z-f*.5*Z,2*Z,2*Z);glow(X,Y-2*Z,'rgba(255,170,80,'+(.28+.05*f)+')',60*Z)}
+ function loop(now){if(!cv||!cv.isConnected||curTab!=='home'){raf=0;return}raf=requestAnimationFrame(loop);const t=now/1000;const r=cv.getBoundingClientRect(),dpr=devicePixelRatio||1;
+  if(cv.width!==Math.round(r.width*dpr)||cv.height!==Math.round(r.height*dpr)){cv.width=r.width*dpr;cv.height=r.height*dpr}ctx.setTransform(dpr,0,0,dpr,0,0);ctx.imageSmoothingEnabled=false;
+  // movement
+  const busy=BATTLE.open||$('#modal').classList.contains('on')||$('#bookView');
+  if(mode==='walk'&&!busy){const hd=holdDir();if(hd&&now-lastStep>170){tryMove(hd);lastStep=now}else if(!hd&&path.length&&now-lastStep>140){const[gx,gy]=path.shift();stepG(gx,gy);lastStep=now;if(!path.length&&pend){const tg=pend;pend=null;setTimeout(()=>goUse(tg),120)}}}
+  if(tour&&tour.wait&&!busy){tour.idle=(tour.idle||0)+1;if(tour.idle>50){tour.wait=0;tour.idle=0;tour.i++;stepTour()}}else if(tour)tour.idle=0;
+  pl.fx+=(pl.x-pl.fx)*.3;pl.fy+=(pl.y-pl.fy)*.3;pet.fx+=(pl.fx-pet.fx-.8)*.06;pet.fy+=(pl.fy-pet.fy-.4)*.06;
+  const o=origin(r);lastO=o;const n=N(sp);
+  // background
+  if(sp==='o'){const sky=S.eq.sky,night=sky==='night'||sky==='aurora';const g=ctx.createLinearGradient(0,0,0,r.height);g.addColorStop(0,sky==='sunset'?'#ff8a5a':night?'#0e1236':'#7ec8ff');g.addColorStop(1,sky==='sunset'?'#ffe0a8':night?'#3a3a7a':'#e6f6ff');ctx.fillStyle=g;ctx.fillRect(0,0,r.width,r.height);
+   if(night)for(let i=0;i<80;i++){ctx.fillStyle='#fff';ctx.globalAlpha=.3+.5*Math.abs(Math.sin(t+i));ctx.fillRect((i*197)%r.width,(i*89)%(r.height*.7),2,2)}ctx.globalAlpha=1;
+   for(let i=0;i<5;i++){const cx=((i*380+t*10*(1+i%3))%(r.width+300))-150,cy=r.height*(.1+((i*37)%50)/100);ctx.fillStyle=night?'rgba(200,210,255,.1)':'rgba(255,255,255,.7)';ctx.fillRect(cx,cy,120,22);ctx.fillRect(cx+26,cy-14,60,16)}}
+  else{const g=ctx.createRadialGradient(r.width/2,r.height*.45,40,r.width/2,r.height*.45,r.width*.7);g.addColorStop(0,'#3a2716');g.addColorStop(1,'#120a05');ctx.fillStyle=g;ctx.fillRect(0,0,r.width,r.height)}
+  hov=mouse&&!busy?targetAt(mouse.x,mouse.y):null;cv.style.cursor=hov||mode==='build'?'pointer':'default';
+  const room=sp==='o'?null:M().rooms[sp];const dl=doors(sp);
+  // interior back walls (x=-1 and y=-1), drawn first
+  if(room){const wm=VOX.MAT[room.w]?room.w:'brick';const wall=(x,y)=>{const d=dl.find(d=>d.x===x&&d.y===y);for(let z=0;z<4;z++){if(d&&(z===1||z===2))continue;const[X,Y]=isoXY(x,y,z,Z);drawCube(ctx,wm,X+o.ox,Y+o.oy,Z)}};
+   wall(-1,-1);for(let i=0;i<n;i++){wall(i,-1);wall(-1,i)}dl.forEach(d=>drawWallDoor(d,o,t));
+   [[Math.floor(n/2)+1,-1,'y'],[-1,Math.floor(n/2)-1,'x']].forEach(([x,y,f])=>{const[X,Y]=isoXY(x,y,2,Z);torch(X+o.ox+(f==='y'?-8:8)*Z,Y+o.oy+16*Z,t)})}
+  // tiles + entities in painter order (view space)
+  const ents=[];const pv=rp(Math.round(pl.fx),Math.round(pl.fy));const pk=(()=>{const n1=n-1;const fx=rot===0?pl.fx:rot===1?n1-pl.fy:rot===2?n1-pl.fx:pl.fy,fy=rot===0?pl.fy:rot===1?pl.fx:rot===2?n1-pl.fy:n1-pl.fx;return{fx,fy}})();
+  if(mode==='walk'||true)ents.push({k:pk.fx+pk.fy+.55,f:()=>drawPlayer(o,t,pk)});
+  if(S.eq.pet!=='none'){const n1=n-1;const ex=rot===0?pet.fx:rot===1?n1-pet.fy:rot===2?n1-pet.fx:pet.fy,ey=rot===0?pet.fy:rot===1?pet.fx:rot===2?n1-pet.fy:n1-pet.fx;ents.push({k:ex+ey+.5,f:()=>drawPet(o,t,ex,ey)})}
+  ents.sort((a,b)=>a.k-b.k);let ei=0;const C={};blocks(sp).forEach(b=>{const k=b[0]+','+b[1];(C[k]=C[k]||[]).push(b)});
+  const ord=[];for(let x=0;x<n;x++)for(let y=0;y<n;y++){const[vx,vy]=rp(x,y);ord.push([vx+vy,vx,vy,x,y])}ord.sort((a,b)=>a[0]-b[0]);
+  const hb=mode==='build'&&mouse&&!busy?hit(mouse.x,mouse.y):null;for(const[s,vx,vy,x,y]of ord){while(ei<ents.length&&ents[ei].k<=s){ents[ei].f();ei++}
+   if(sp==='o'){const d=Math.round(2+2*Math.max(0,1-Math.hypot(x-5.5,y-5.5)/8));for(let z=-d;z<1;z++){const[X,Y]=isoXY(vx,vy,z,Z);drawCube(ctx,z===0?'grass':z===-1?'dirt':'stone',X+o.ox,Y+o.oy,Z)}}
+   else{const[X,Y]=isoXY(vx,vy,0,Z);drawCube(ctx,VOX.MAT[room.f]?room.f:'plank',X+o.ox,Y+o.oy,Z)}
+   (C[x+','+y]||[]).sort((a,b)=>a[2]-b[2]).forEach(b=>{const[X,Y]=isoXY(vx,vy,b[2],Z);drawCube(ctx,b[3],X+o.ox,Y+o.oy,Z)});
+   if(hb&&hb.x===x&&hb.y===y){const[X,Y]=isoXY(vx,vy,topZ(x,y),Z);const cx=X+o.ox,cy=Y+o.oy+8*Z;ctx.strokeStyle=erase?'#ff5a5a':'#ffe48a';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(cx,cy-8*Z);ctx.lineTo(cx+16*Z,cy);ctx.lineTo(cx,cy+8*Z);ctx.lineTo(cx-16*Z,cy);ctx.closePath();ctx.stroke()}
+   const it=itemAt(x,y);if(it){const pg=[Math.round(pk.fx),Math.round(pk.fy)];const fr=vx>=pg[0]&&vy>=pg[1]&&(vx>pg[0]||vy>pg[1])&&vx-pg[0]<=2&&vy-pg[1]<=2;if(fr)ctx.globalAlpha=.4;drawItem(it,o,t);ctx.globalAlpha=1}}
+  while(ei<ents.length){ents[ei].f();ei++}
+  // route numbers + dotted path
+  if(showRoute){const L=itemsIn(sp).filter(p=>p.k!=='door');const all=routeList();ctx.setLineDash([4*Z,4*Z]);ctx.strokeStyle='rgba(255,228,138,.55)';ctx.lineWidth=1.5*Z;ctx.beginPath();L.forEach((p,i)=>{const[a,b]=standPt(p.x,p.y,o);i?ctx.lineTo(a,b):ctx.moveTo(a,b)});ctx.stroke();ctx.setLineDash([]);
+   L.forEach(p=>{const[a,b]=standPt(p.x,p.y,o);const num=all.indexOf(p)+1;const fs=Math.max(10,4.5*Z);ctx.font='900 '+fs+'px Nunito';const w=Math.max(fs+6,ctx.measureText(num).width+8);const yy=b-(p.k.startsWith('sg')?44:50)*Z;const cur=tour&&tour.list[tour.i]===p;ctx.fillStyle=cur?'#ff7a2a':'rgba(20,24,46,.85)';ctx.fillRect(a-w/2,yy-fs,w,fs+4);ctx.fillStyle='#ffe48a';ctx.textAlign='center';ctx.fillText(num,a,yy+1);ctx.textAlign='left'})}
+  // particles
+  if(Math.random()<.2){const D=itemsIn(sp).filter(p=>due(p.k));const p=D[(Math.random()*D.length)|0];if(p)parts.push({k:'mote',x:p.x+(Math.random()-.5)*.7,y:p.y+(Math.random()-.5)*.7,z:topZ(p.x,p.y),life:60,c:M().rv[p.k]&&!M().rv[p.k].ok?'#ffb070':'#ffe48a'})}
+  parts=parts.filter(p=>p.life-->0);parts.forEach(p=>{const[vx,vy]=rp(p.x,p.y);const[X,Y]=isoXY(vx,vy,p.z,Z);const sx=X+o.ox,sy=Y+o.oy+8*Z;
+   if(p.k==='dust'){const a=p.life/24;ctx.fillStyle=`rgba(235,225,200,${a})`;const s=(3+(1-a)*3)*Z;ctx.fillRect(sx+p.dx*(24-p.life)*Z-s/2,sy-(24-p.life)*p.vz*Z-s/2,s,s)}
+   else{const a=Math.min(1,p.life/25);ctx.globalAlpha=a;ctx.fillStyle=p.c;const rise=(p.k==='spark'?50:60)-p.life;ctx.fillRect(sx+Math.sin(p.life*.2)*3*Z,sy-rise*.8*Z-10*Z,2*Z,2*Z);ctx.globalAlpha=1}});
+  if(hov)hoverMark(hov,o,t);
+  if(mode==='build'&&(selItem||erase)){const tip=$('#hmTip');if(tip){tip.style.display='block';tip.innerHTML=erase?'Erase: click an item or block to pick it up':`Placing: ${info(selItem).ic} ${esc(info(selItem).kind==='Page'?info(selItem).sub:info(selItem).t)}`}}else{const tip=$('#hmTip');if(tip)tip.style.display='none'}}
+ function drawPlayer(o,t,pk){const z=topZ(Math.round(pl.fx),Math.round(pl.fy));const[X,Y]=isoXY(pk.fx,pk.fy,z,Z);const sx=X+o.ox,sy=Y+o.oy+8*Z;const moving=Math.abs(pl.x-pl.fx)+Math.abs(pl.y-pl.fy)>.05;
+  const vd=pl.dir==='left'||pl.dir==='right'?'side':(pl.dir==='up'||pl.dir==='ur'||pl.dir==='ul'?'up':'down');const sp2=heroSprite(vd,moving?Math.floor(t*8):0);const flip=pl.dir==='left'||pl.dir==='ul'||pl.dir==='dl';
+  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(sx,sy,8*Z,4*Z,0,0,7);ctx.fill();
+  ctx.save();ctx.translate(sx,sy-sp2.height*Z+2*Z+(moving?-Math.abs(Math.sin(t*16))*Z:0));if(flip)ctx.scale(-1,1);ctx.drawImage(sp2,-sp2.width*Z/2,0,sp2.width*Z,sp2.height*Z);ctx.restore()}
+ function drawPet(o,t,ex,ey){const sp2=HERO.petSprite(S.eq.pet,Math.floor(t*4));if(!sp2)return;const z=topZ(Math.round(pet.fx),Math.round(pet.fy));const[X,Y]=isoXY(ex,ey,z,Z);const fly=['owl','dragon','bee'].includes(S.eq.pet);
+  ctx.drawImage(sp2,X+o.ox-sp2.width*Z*.6+10*Z,Y+o.oy+8*Z-sp2.height*Z*1.2-(fly?10*Z+Math.sin(t*3)*3*Z:0),sp2.width*Z*1.2,sp2.height*Z*1.2)}
+ function targetAt(mx,my){if(!lastO)return null;const o=lastO;let best=null,bk=-1e9;
+  itemsIn(sp).forEach(p=>{const[sx,sy]=standPt(p.x,p.y,o);const[vx,vy]=rp(p.x,p.y);const h=p.k==='door'?44:34;if(mx>sx-14*Z&&mx<sx+14*Z&&my>sy-h*Z&&my<sy+5*Z&&vx+vy>bk){bk=vx+vy;best={kind:'item',p,x:p.x,y:p.y}}});
+  doors(sp).filter(d=>d.face!=='o').forEach(d=>{const[X0,Y0]=isoXY(d.x,d.y,1,Z);const X=X0+lastO.ox+(d.face==='y'?-8:8)*Z,Y=Y0+lastO.oy+16*Z;if(Math.abs(mx-X)<12*Z&&my>Y-22*Z&&my<Y+14*Z)best={kind:'door',d,x:d.x,y:d.y}});return best}
+ function hoverMark(tg,o,t){let sx,sy;if(tg.kind==='item'){[sx,sy]=standPt(tg.x,tg.y,o)}else{const[X0,Y0]=isoXY(tg.x,tg.y,1,Z);sx=X0+o.ox+(tg.d.face==='y'?-8:8)*Z;sy=Y0+o.oy+28*Z}
+  const pulse=.55+.35*Math.sin(t*6);ctx.strokeStyle='rgba(255,228,138,'+pulse+')';ctx.lineWidth=2.5*Z;ctx.beginPath();ctx.ellipse(sx,sy,15*Z,7*Z,0,0,7);ctx.stroke();
+  let txt;if(tg.kind==='door')txt='🚪 '+(tg.d.to==='o'?'Back outside':'Go to '+M().rooms[tg.d.to].n);else{const f=info(tg.p.k);txt=tg.p.k==='door'?'🚪 Enter '+M().rooms[0].n:`${f.ic} ${f.kind==='Page'?f.sub.split(' · ')[0]+' · '+f.t:f.kind+': '+f.t}`;if(txt.length>64)txt=txt.slice(0,62)+'…';if(mode==='build'&&erase)txt='✗ Pick up: '+txt}
+  const fs=Math.max(12,5.5*Z);ctx.font='800 '+fs+'px Nunito';const w=ctx.measureText(txt).width+18,h=fs+12;let bx=sx-w/2;bx=Math.max(4,Math.min(bx,cv.getBoundingClientRect().width-w-4));const by=sy-48*Z-h;
+  ctx.fillStyle='rgba(20,24,46,.92)';ctx.fillRect(bx,by,w,h);ctx.strokeStyle='#ffe48a';ctx.lineWidth=2;ctx.strokeRect(bx,by,w,h);ctx.fillStyle='#fff';ctx.textBaseline='middle';ctx.fillText(txt,bx+9,by+h/2+1);ctx.textBaseline='alphabetic'}
+ // tile under the pointer (front-to-back), for build clicks and walk taps
+ function hit(mx,my){const o=lastO;if(!o)return null;const n=N(sp);const ord=[];for(let x=0;x<n;x++)for(let y=0;y<n;y++){const[vx,vy]=rp(x,y);ord.push([vx+vy,vx,vy,x,y])}ord.sort((a,b)=>b[0]-a[0]);
+  for(const[s,vx,vy,x,y]of ord){const[X,Y]=isoXY(vx,vy,topZ(x,y),Z);const cx=X+o.ox,cy=Y+o.oy+8*Z;if(Math.abs(mx-cx)/(16*Z)+Math.abs(my-cy)/(8*Z)<=1.05)return{x,y}}return null}
+ function click(e){const r=cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;mouse={x:mx,y:my};
+  if(mode==='walk'){if(tour)stopTour('Route paused. Press 🧭 to start again.');const tg=targetAt(mx,my);if(tg){goUse(tg);return}const h=hit(mx,my);if(!h)return;const rr=bfs(h.x,h.y,false);if(rr){path=rr.steps;pend=null}return}
+  const tg=targetAt(mx,my);const h=tg&&tg.kind==='item'?{x:tg.x,y:tg.y}:hit(mx,my);if(!h)return;const{x,y}=h;const m=M();const it=itemAt(x,y);
+  if(erase){if(it){m.pl=m.pl.filter(p=>p!==it);SND.crack();toast(`${info(it.k).ic} Picked up. Place it somewhere else.`)}else{const col=blocks(sp).filter(b=>b[0]===x&&b[1]===y);if(!col.length)return;const b=col.sort((a,b)=>b[2]-a[2])[0];const arr=blocks(sp);arr.splice(arr.indexOf(b),1);addBlocks(b[3],1);SND.crack()}save();below();header();return}
+  if(x===pl.x&&y===pl.y){toast('Your hero is standing there.');return}
+  if(selItem){if(it){toast('Something is already there.');return}if(placed(selItem)){selItem=null;below();return}m.pl.push({k:selItem,w:sp,x,y});SND.place();const[sx,sy]=standPt(x,y,lastO);burst(['#ffe48a','#fff','#9fd8ff'],24,r.left+sx,r.top+sy-20*Z);const f=info(selItem);toast(`${f.ic} Placed in ${esc(spaceName(sp))} as stop #${routeList().findIndex(p=>p.k===selItem)+1}`);selItem=null;save();checkMedals();below();header();return}
+  if(it){toast('An item is on that tile. Use Erase to move it first.');return}
+  if(!(S.inv[sel]>0)){toast('No '+(VOX.MAT[sel]?VOX.MAT[sel].n:sel)+' left. Earn or buy more.');return}const z=topZ(x,y);if(z+1>(sp==='o'?14:3)){toast(sp==='o'?'Max height':'The ceiling is right there');return}
+  blocks(sp).push([x,y,z+1,sel]);S.inv[sel]--;SND.place();checkMedals();save();below()}
+ // keyboard
+ function holdDir(){const on={};for(const k in keys)if(KMAP[k])on[KMAP[k]]=1;const v=(on.up?1:0)-(on.down?1:0),h=(on.right?1:0)-(on.left?1:0);if(v>0&&h>0)return'ur';if(v>0&&h<0)return'ul';if(v<0&&h>0)return'dr';if(v<0&&h<0)return'dl';if(v>0)return'up';if(v<0)return'down';if(h>0)return'right';if(h<0)return'left';return null}
+ addEventListener('keydown',e=>{if(curTab!=='home'||mode!=='walk'||!cv||!cv.isConnected||BATTLE.open||$('#modal').classList.contains('on')||$('#bookView')||$('#isle').classList.contains('on'))return;if(e.target.matches&&e.target.matches('input,textarea,select'))return;const k=e.key.toLowerCase();
+  if(KMAP[k]){e.preventDefault();if(tour)stopTour('Route paused. Press 🧭 to start again.');path=[];pend=null;if(!keys[k]){keys[k]=1;const hd=holdDir();if(hd){tryMove(hd);lastStep=performance.now()}}}else if(k===' '||k==='e'||k==='enter'){e.preventDefault();act()}});
+ addEventListener('keyup',e=>{delete keys[e.key.toLowerCase()]});
+ addEventListener('blur',()=>{keys={}});
+ return{render,check,get dbg(){return{sp,mode,pl:pl.x+','+pl.y,items:M().pl.length,tour:!!tour}},_t:{frame:t=>loop(t),pagesOwned,allOwned,routeList,enterSpace,goUse,station,startTour,setMode:m=>{mode=m},sel:k=>{selItem=k},clickAt:(x,y)=>{const o=lastO;const[sx,sy]=standPt(x,y,o);const r=cv.getBoundingClientRect();click({clientX:r.left+sx,clientY:r.top+sy})}}};
+})();
+
 // ===== Pixel-art menu icons (voxel style) =====
 const ICONS=(()=>{
  const D={
@@ -1708,7 +2005,7 @@ const TABS=[
  ['off','Official Questions','Questions written by the lecturers themselves (verbatim, with their keys). Top priority for the exam.'],
  ['notes','Study Notes','Slide-by-slide notes for every lecture with citations. Read before or after an island.'],
  ['quiz','Practice Quiz','Build a custom quiz from any islands: unseen, missed, or everything.'],
- ['home','Home Island','Build your own floating island with the blocks you earn from correct answers and mining.'],
+ ['home','Mind Palace','Your island and house: build it, then place the pages, tomes and trophies you earn and walk your route to recall them.'],
  ['shop','Shop','Spend emeralds on classes, hats, capes, swords, pickaxes, pets, trails, effects, sound packs and skies. Open loot crates.'],
  ['medals','Medals','Achievements for studying milestones. Each pays out emeralds.'],
  ['board','Leaderboard','Class rankings by lifetime emeralds earned.'],
@@ -1754,45 +2051,7 @@ const QUIZUI=(()=>{let sel=new Set(),mode='smart',n=20,offOnly=false,ly=false,ru
   const g=x.createLinearGradient(0,0,0,r.height);g.addColorStop(0,'#bfe6ff');g.addColorStop(1,'#fff');x.fillStyle=g;x.fillRect(0,0,r.width,r.height);ms.blocks.forEach(b=>x.drawImage(VOX.cube(b.m),b.x,30,44,44))}
  function miniBreak(){if(!ms)return;const alive=ms.blocks.filter(b=>b.alive);if(!alive.length)return;const b=alive[(Math.random()*alive.length)|0];b.alive=0;const cols=[VOX.MAT[b.m].t,VOX.MAT[b.m].s,VOX.MAT[b.m].o||'#fff'];const R=ms.x.canvas.getBoundingClientRect();burst(cols,26,R.left+b.x+22,R.top+50)}
  return{render};})();
-// ---------- HOME island builder ----------
-const HOME=(()=>{let cv,ctx,sel='grass',erase=false,Z=2,rot=0;const G=12;
- const BASE=['grass','dirt','stone','cobble','plank','log','leaves','sand','pine','snow','sandstone','redsand','moss','brick'];
- const PALS={wool:{n:'Wool Pack',p:300,m:['w_red','w_blue','w_yel','w_wht','w_blk','w_pur','w_pnk','w_org','w_grn','w_cyn']},glow:{n:'Glass & Lanterns',p:250,m:['glass','lantern','water','ice']},royal:{n:'Royal Pack',p:600,m:['gold','quartz','iron','obsid']},gem:{n:'Gem Pack',p:500,m:['crystal','amethyst','bloom','coral','mush','myc','bone','basalt']}};
- function market(){const set=new Set(BASE);for(const k in PALS)if(S.own.pal[k])PALS[k].m.forEach(m=>set.add(m));return[...set]}
- function heightAt(x,y){let h=1;S.home.forEach(b=>{if(b[0]===x&&b[1]===y)h=Math.max(h,b[2]+1)});return h}
- function render(){const host=$('#p-home');const inv=Object.keys(S.inv).filter(k=>S.inv[k]>0);
-  host.innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><div><b>Your floating island</b> <span class="muted">· ${S.home.length} blocks placed · click a block top to stack, toggle Erase to pick blocks back up.</span></div><div class="row"><button class="btn ${erase?'red':'gray'}" id="hmErase">${erase?'Erasing ✗':'Erase mode'}</button><button class="btn gray" id="hmRot">Rotate ⟳</button></div></div></div>
-  <canvas id="homeCv"></canvas>
-  <div class="card" style="margin-top:12px"><b>Inventory</b> <span class="muted">(earned from correct answers and mining)</span><div class="pal" id="hmInv" style="margin-top:8px"></div></div>
-  <div class="card"><b>Block market</b> <span class="muted">8 blocks for 10 <i class="gem"></i> · unlock packs for more blocks</span><div class="pal" id="hmMk" style="margin-top:8px"></div><div class="row" style="margin-top:10px">${Object.entries(PALS).map(([k,p])=>S.own.pal[k]?`<span class="chip on">✓ ${p.n}</span>`:`<button class="btn blue" data-pal="${k}">Unlock ${p.n} · ${p.p} <i class="gem"></i></button>`).join('')}</div></div>`;
-  $('#hmInv').innerHTML=inv.length?inv.map(m=>`<button data-m="${m}" class="${sel===m?'on':''}"><canvas width="32" height="32"></canvas>${esc(VOX.MAT[m].n)}<br>×${S.inv[m]}</button>`).join(''):'<span class="muted">Answer questions to earn blocks!</span>';
-  $('#hmMk').innerHTML=market().map(m=>`<button data-buy="${m}"><canvas width="32" height="32"></canvas>${esc(VOX.MAT[m].n)}<br>+8 · 10<i class="gem"></i></button>`).join('');
-  host.querySelectorAll('.pal canvas').forEach(c=>{const m=c.parentNode.dataset.m||c.parentNode.dataset.buy;const x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(VOX.cube(m),0,0,32,32)});
-  host.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{sel=b.dataset.m;erase=false;render()});
-  host.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{if(S.sh<10){toast('Need 10 <i class="gem"></i>');return}S.sh-=10;addBlocks(b.dataset.buy,8);SND.coin();save();hud();render()});
-  host.querySelectorAll('[data-pal]').forEach(b=>b.onclick=()=>{const p=PALS[b.dataset.pal];if(S.sh<p.p){toast('Need '+p.p+' <i class="gem"></i>');return}S.sh-=p.p;S.own.pal[b.dataset.pal]=1;p.m.forEach(m=>addBlocks(m,4));SND.crate();toast('Unlocked '+p.n+'! +4 of each');save();hud();render()});
-  $('#hmErase').onclick=()=>{erase=!erase;render()};$('#hmRot').onclick=()=>{rot=(rot+1)%4;draw()};
-  cv=$('#homeCv');ctx=cv.getContext('2d');cv.onpointerdown=click;draw()}
- function rp(x,y){// rotate grid coords for view
-  return rot===0?[x,y]:rot===1?[G-1-y,x]:rot===2?[G-1-x,G-1-y]:[y,G-1-x]}
- function cols(){const C={};for(let x=0;x<G;x++)for(let y=0;y<G;y++)C[x+','+y]=[];S.home.forEach(b=>{const k=b[0]+','+b[1];C[k]&&C[k].push(b)});return C}
- function origin(){const r=cv.getBoundingClientRect();Z=Math.max(1,Math.min(r.width/(G*32+60),r.height/(G*16+11*16)));return{ox:r.width/2,oy:r.height/2-G*8*Z+60*Z,r}}
- function draw(){if(!cv||!cv.isConnected)return;const dpr=devicePixelRatio||1;const o=origin();cv.width=o.r.width*dpr;cv.height=o.r.height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.imageSmoothingEnabled=false;
-  const g=ctx.createLinearGradient(0,0,0,o.r.height);g.addColorStop(0,'#7ec8ff');g.addColorStop(1,'#e6f6ff');ctx.fillStyle=g;ctx.fillRect(0,0,o.r.width,o.r.height);
-  const C=cols();const order=[];for(let x=0;x<G;x++)for(let y=0;y<G;y++){const[vx,vy]=rp(x,y);order.push([vx+vy,vx,vy,x,y])}order.sort((a,b)=>a[0]-b[0]);
-  order.forEach(([s,vx,vy,x,y])=>{const d=Math.round(2+2*Math.max(0,1-Math.hypot(x-5.5,y-5.5)/8));for(let z=-d;z<1;z++){const[X,Y]=isoXY(vx,vy,z,Z);drawCube(ctx,z===0?'grass':z===-1?'dirt':'stone',X+o.ox,Y+o.oy,Z)}
-   C[x+','+y].sort((a,b)=>a[2]-b[2]).forEach(b=>{const[X,Y]=isoXY(vx,vy,b[2],Z);drawCube(ctx,b[3],X+o.ox,Y+o.oy,Z)})});
-  // hero standing on center
-  const hs=HERO.paint(S.eq,'down',0);const[hx,hy]=isoXY(...rp(G-2,G-2),heightAt(G-2,G-2)-1,Z);ctx.drawImage(hs,hx+o.ox-hs.width*Z/2,hy+o.oy+8*Z-hs.height*Z,hs.width*Z,hs.height*Z)}
- function click(e){const o=origin();const r=cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;const C=cols();
-  // test columns front-to-back
-  const order=[];for(let x=0;x<G;x++)for(let y=0;y<G;y++){const[vx,vy]=rp(x,y);order.push([vx+vy,vx,vy,x,y])}order.sort((a,b)=>b[0]-a[0]);
-  for(const[s,vx,vy,x,y]of order){const top=heightAt(x,y)-1;const[X,Y]=isoXY(vx,vy,top,Z);const cx=X+o.ox,cy=Y+o.oy+8*Z;if(Math.abs(mx-cx)/(16*Z)+Math.abs(my-cy)/(8*Z)<=1.05){
-    if(erase){const col=C[x+','+y];if(!col.length)return;const b=col.sort((a,b)=>b[2]-a[2])[0];S.home=S.home.filter(q=>q!==b);addBlocks(b[3],1);SND.crack()}
-    else{if(!(S.inv[sel]>0)){toast('No '+VOX.MAT[sel].n+' left. Earn or buy more.');return}if(top+1>14){toast('Max height');return}S.home.push([x,y,top+1,sel]);S.inv[sel]--;SND.place();checkMedals()}
-    save();render();return}}}
- addEventListener('resize',()=>{if(curTab==='home')draw()});
- return{render};})();
+// HOME (Mind Palace) lives in js/palace.js
 // ---------- SHOP ----------
 const SHOP=(()=>{let cat='cls';
  const TRAILS={none:{n:'No Trail',p:0,r:1},sparkle:{n:'Sparkle Trail',p:200,r:1},hearts:{n:'Heart Trail',p:300,r:2},fire:{n:'Fire Trail',p:450,r:3},rainbow:{n:'Rainbow Trail',p:700,r:4}};
@@ -1838,7 +2097,7 @@ const SHOP=(()=>{let cat='cls';
 // ---------- MAIN MENU ----------
 const MENU=(()=>{let raf=0,cv,ctx,th=null,thId='';
  const TILES=[['off','oracle','Official Questions','The professors\' own questions. Top priority.'],['notes','book','Study Notes','Slide-by-slide notes for every lecture.'],['quiz','target','Practice Quiz','Custom quizzes: unseen, missed, or all.'],
-  ['home','island','Home Island','Build with the blocks you earn.'],['shop','chest','Shop','Classes, pets, swords, sounds, skies + crates.'],['medals','medal','Medals','Milestones that pay out emeralds.'],
+  ['home','island','Mind Palace','Place what you learn. Walk it to remember.'],['shop','chest','Shop','Classes, pets, swords, sounds, skies + crates.'],['medals','medal','Medals','Milestones that pay out emeralds.'],
   ['board','trophy','Leaderboard','Friendly class rankings + hero showcase.'],['save','crystal','Progress & Saves','Mastery by lecture + backup codes.']];
  function nextL(){return LECTS.find(L=>L.qs.length&&stars(L.id)<3)||LECTS[0]}
  function render(){const host=$('#p-menu');const N=nextL(),lv=lvFromXp(S.xp),mastered=libCount();
@@ -1877,12 +2136,13 @@ const MEDALS=[
  ['boss1','Altar Breaker','Defeat your first island boss',()=>Object.keys(S.boss).length>=1,80],['boss5','Boss Rush','Defeat 5 bosses',()=>Object.keys(S.boss).length>=5,150],['bossAll','Sky Sovereign','Defeat every island boss',()=>LECTS.length&&LECTS.every(L=>S.boss[L.id]),500],
  ['star3','Island Master','3 stars on any island',()=>LECTS.some(L=>stars(L.id)===3),80],['ear','Ear Isles Cleared','3 stars on every Ear isle',()=>regionDone('ear'),200],['nose','Peaks Conquered','3 stars on every Nose & Sinus isle',()=>regionDone('nose'),200],['mouth','Canyon King','3 stars on every Mouth & Throat isle',()=>regionDone('mouth'),200],['neck','Highland Hero','3 stars on every Neck & Larynx isle',()=>regionDone('neck'),200],['dream','Dream Walker','3 stars on every Moonlit Hollow isle',()=>regionDone('dream'),200],['chest','Fortress Breaker','3 stars on every Chest Fortress isle',()=>regionDone('chest'),200],
  ['offAll','Oracle\'s Favorite','Every official question correct',()=>{const o=Q.filter(q=>q.off);return o.length&&o.every(q=>S.qs[q.id]&&S.qs[q.id].l)},300],
+ ['pal5','Memory Keeper','Place 5 memory items in your Mind Palace',()=>S.mp&&S.mp.pl&&S.mp.pl.filter(p=>p.k!=='door').length>=5,50],['pal25','Curator','Place 25 memory items',()=>S.mp&&S.mp.pl&&S.mp.pl.filter(p=>p.k!=='door').length>=25,150],['route1','Walk the Loci','Walk your Mind Palace route',()=>S.mp&&S.mp.routes>=1,80],['route5','Palace Regular','Walk your route on 5 different days',()=>S.mp&&S.mp.routes>=5,200],
  ['build50','Builder','Place 50 blocks on your Home Island',()=>S.home.length>=50,60],['build250','Architect','Place 250 blocks',()=>S.home.length>=250,200],
  ['str3','Habit Forming','3-day streak',()=>S.streak.n>=3,60],['str7','Weeklong Warrior','7-day streak',()=>S.streak.n>=7,150],
  ['lv10','Level 10','Reach level 10',()=>level()>=10,100],['lv25','Level 25','Reach level 25',()=>level()>=25,250],
 ];
 function regionDone(r){const ls=LECTS.filter(L=>L.r===r&&L.qs.length);return ls.length&&ls.every(L=>stars(L.id)===3)}
-function checkMedals(){MEDALS.forEach(([id,n,d,f,pay])=>{if(!S.medals[id]&&f()){S.medals[id]=Date.now();S.sh+=pay;S.earned+=pay;toast(`🏅 Medal: <b>${n}</b> +${pay} <i class="gem"></i>`,3200);SND.lvl()}})}
+function checkMedals(){if(typeof HOME!=='undefined'&&HOME.check)HOME.check();MEDALS.forEach(([id,n,d,f,pay])=>{if(!S.medals[id]&&f()){S.medals[id]=Date.now();S.sh+=pay;S.earned+=pay;toast(`🏅 Medal: <b>${n}</b> +${pay} <i class="gem"></i>`,3200);SND.lvl()}})}
 function renderMedals(){const got=Object.keys(S.medals).length;$('#p-medals').innerHTML=`<div class="card"><b>${got}/${MEDALS.length}</b> medals earned</div><div class="grid">${MEDALS.map(([id,n,d,f,pay])=>`<div class="item ${S.medals[id]?'own':''}" style="${S.medals[id]?'':'opacity:.6'}"><div style="font-size:34px">${S.medals[id]?'🏅':'🔒'}</div><div class="nm">${esc(n)}</div><div class="ds">${esc(d)}</div><div class="pr">+${pay} <i class="gem"></i></div></div>`).join('')}</div>`}
 function safeEq(e){e=e||{};const pick=(v,tab,def)=>tab[v]?v:def;return{cls:pick(e.cls,HERO.CLASS,'adv'),skin:pick(e.skin,HERO.SKIN,'s1'),hat:e.hat==='class'||HERO.HATS[e.hat]?(e.hat||'class'):'class',cape:pick(e.cape,HERO.CAPES,'none'),sword:pick(e.sword,HERO.SWORDS,'wood'),pet:pick(e.pet,HERO.PETS,'none'),sky:['day','sunset','night','aurora'].includes(e.sky)?e.sky:'day'}}
 function portrait(e,big){const eq=safeEq(e),sc=big?5:3,cv=document.createElement('canvas');cv.width=big?190:96;cv.height=big?190:96;const x=cv.getContext('2d');x.imageSmoothingEnabled=false;
